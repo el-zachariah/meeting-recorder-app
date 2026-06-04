@@ -1,113 +1,231 @@
-# Meeting Recorder App MVP
+# Meeting Recorder
 
-A Linux-first, privacy-first local desktop/tool app for recording your screen, system audio and microphone when available, organizing recordings into timestamped meeting folders, transcribing locally with installed Whisper-compatible tools, and generating summaries.
+Local-first Linux meeting recorder for screen capture, system audio/microphone capture where available, private meeting organization, local transcription fallback, and summaries.
 
-## Privacy
+Meeting Recorder is designed for people who want meeting artifacts to stay on their own computer by default. It records into timestamped folders under `~/Meetings`, writes metadata, can transcribe with locally installed Whisper-compatible tools, and can summarize transcripts without sending recordings anywhere.
 
-- **No uploads by default.** Recording, file organization, transcription fallback, and extractive summaries run locally.
-- The app only uses an OpenAI-compatible API if you explicitly pass `summarize --use-api` **and** set `OPENAI_BASE_URL` plus `OPENAI_API_KEY`.
-- Temporary raw recordings are created in a new private `0700` temp directory per recording, then moved into the meeting folder.
-- Meeting folders are created with user-only permissions (`0700`), and media/metadata files are set to `0600` where practical.
-- Your recordings are stored under `~/Meetings` by default, or a folder you choose.
+## 60-second quick start
 
-## What works in this MVP
-
-- CLI launcher: `./meeting-recorder`
-- Simple Tk desktop GUI: `./meeting-recorder gui`
-- Linux screen recording via `ffmpeg` `x11grab`.
-- Best-effort PulseAudio/PipeWire Pulse source detection for system audio monitor and microphone.
-- On stop: moves media into `YYYY-MM-DD_HH-MM-SS_title/recording.mkv` with `metadata.json`.
-- Local transcription if a compatible engine is installed:
-  - Python `faster-whisper` package, preferred
-  - `whisper.cpp` CLI (`whisper-cli`, `main`, or `whisper.cpp` on PATH)
-  - OpenAI Whisper local CLI (`whisper` on PATH)
-- Graceful no-op transcription fallback with install instructions.
-- Local extractive/template summary in `summary.md`.
-- Tests for organization, transcription fallback, and summarization.
-
-## Requirements
-
-- Linux
-- Python 3.10+
-- `ffmpeg` installed and on PATH
-- X11 session for screen capture (`x11grab`). Wayland users may need to log into an Xorg session or adapt capture tooling.
-- Optional: PulseAudio/PipeWire Pulse compatibility for audio source auto-detection.
-- Optional: `tkinter` for GUI (`python3-tk` on many distros).
-
-## Quick start from release tarball
+From the source installer release asset:
 
 ```bash
-tar -xzf meeting-recorder-app-0.1.0.tar.gz
-cd meeting-recorder-app-0.1.0
-./meeting-recorder status
+tar -xzf meeting-recorder-app-0.2.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.2.0
+./install.sh
+~/.local/bin/meeting-recorder doctor
+~/.local/bin/meeting-recorder gui
+```
+
+Record from the CLI:
+
+```bash
+meeting-recorder record --title "team-sync" --open
+# Press Enter to stop recording.
+```
+
+Review saved meetings:
+
+```bash
+meeting-recorder list
+meeting-recorder show <meeting-id>
+meeting-recorder open <meeting-id> --target summary
+```
+
+## Install options
+
+### Option 1: user-local source installer (recommended for most Linux users)
+
+```bash
+tar -xzf meeting-recorder-app-0.2.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.2.0
+./install.sh
+```
+
+This installs to:
+
+- app files: `~/.local/opt/meeting-recorder-app-0.2.0`
+- command: `~/.local/bin/meeting-recorder`
+- desktop launcher: `~/.local/share/applications/meeting-recorder.desktop`
+
+If `~/.local/bin` is not on your PATH, either add it or run `~/.local/bin/meeting-recorder` directly.
+
+### Option 2: Debian/Ubuntu package
+
+```bash
+sudo apt install ./meeting-recorder-app_0.2.0_all.deb
+meeting-recorder doctor
+meeting-recorder gui
+```
+
+The `.deb` declares dependencies on `python3`, `python3-tk`, and `ffmpeg`.
+
+### Option 3: run from a source checkout
+
+```bash
+git clone <repo-url> meeting-recorder-app
+cd meeting-recorder-app
+./meeting-recorder doctor
 ./meeting-recorder gui
 ```
 
-CLI recording:
+## Distro dependencies
+
+Meeting Recorder has no required Python package dependencies, but it relies on system tools for capture and desktop UI.
+
+Debian/Ubuntu:
 
 ```bash
-./meeting-recorder record --title "team-sync" --size 1920x1080
-# Press Enter to stop.
+sudo apt update
+sudo apt install python3 python3-tk ffmpeg pulseaudio-utils x11-utils
 ```
 
-If screen size differs:
+Fedora:
 
 ```bash
-MEETING_RECORDER_SIZE=1366x768 ./meeting-recorder record --title demo
+sudo dnf install python3 python3-tkinter ffmpeg pulseaudio-utils xorg-x11-utils
 ```
 
-Disable audio if needed:
+Arch Linux:
 
 ```bash
-./meeting-recorder record --title demo --no-system-audio --no-mic
+sudo pacman -S python tk ffmpeg libpulse xorg-xdpyinfo
 ```
 
-## Transcription
+Notes:
 
-Recordings are transcribed locally only when a local engine is installed. Otherwise `transcript.txt` contains instructions and no audio/video is uploaded.
+- X11 sessions are currently the smoothest capture path because screen recording uses ffmpeg `x11grab`.
+- On Wayland, log into an Xorg session or use a compositor/portal-specific recorder until native portal capture is added.
+- Audio source detection is best-effort via PulseAudio/PipeWire Pulse compatibility (`pactl`).
 
-Recommended local engine:
+## First-run setup
+
+Run the environment doctor before recording:
+
+```bash
+meeting-recorder doctor
+meeting-recorder doctor --json
+meeting-recorder doctor --check ffmpeg --check display
+```
+
+The doctor checks ffmpeg, display/session state, screen size detection, audio sources, tkinter, transcription engines, output directory permissions, and privacy mode.
+
+Common capture options:
+
+```bash
+meeting-recorder record --title demo --size 1920x1080
+meeting-recorder record --title demo --display :0.0
+meeting-recorder record --title demo --no-system-audio --no-mic
+meeting-recorder record --title demo --no-transcribe --no-summary
+```
+
+By default recordings are saved under `~/Meetings/YYYY-MM-DD_HH-MM-SS_title/` with:
+
+- `recording.mkv`
+- `metadata.json`
+- `transcript.txt` when transcription runs or writes fallback instructions
+- `summary.md` when summary generation runs
+
+## Local transcription
+
+Transcription runs only when a compatible local engine is installed. If none is found, Meeting Recorder writes a clear `transcript.txt` explaining what to install rather than uploading media.
+
+Supported local engine paths include:
+
+- Python `faster-whisper` package
+- `whisper.cpp` command names such as `whisper-cli`, `main`, or `whisper.cpp`
+- OpenAI Whisper local CLI command `whisper`
+
+Example with an isolated development environment:
 
 ```bash
 uv venv
 uv pip install faster-whisper
-./meeting-recorder transcribe --media ~/Meetings/<meeting-folder>/recording.mkv
+meeting-recorder transcribe --media ~/Meetings/<meeting-folder>/recording.mkv --model base
+meeting-recorder summarize --transcript ~/Meetings/<meeting-folder>/transcript.txt
 ```
 
-Important: passing a model name such as `base` can cause `faster-whisper` or the OpenAI Whisper CLI to download model files the first time. That still does **not** upload your recordings, but it is network access. For fully offline use, download and verify a model yourself, pass its local path with `--model`, and run with:
+Model names such as `base` may cause the selected local engine to download model files. For offline use, download and verify a model yourself, pass the local model path, and set:
 
 ```bash
-MEETING_RECORDER_OFFLINE=1 ./meeting-recorder transcribe --media ~/Meetings/<meeting-folder>/recording.mkv --model /path/to/local/model
+MEETING_RECORDER_OFFLINE=1 meeting-recorder transcribe --media recording.mkv --model /path/to/model
 ```
 
-Then summarize:
+## Privacy model
 
-```bash
-./meeting-recorder summarize --transcript ~/Meetings/<meeting-folder>/transcript.txt
-```
+- No uploads by default.
+- Recordings, metadata, transcripts, and summaries are stored locally.
+- Temporary raw recording directories are created with user-only permissions where practical.
+- Meeting folders and artifacts are created with private permissions where practical.
+- API summaries are disabled unless you explicitly pass `summarize --use-api` and provide `OPENAI_BASE_URL` plus `OPENAI_API_KEY`.
 
-## Optional API summary opt-in
-
-This is disabled unless you explicitly opt in:
+Opt-in API summary example:
 
 ```bash
 export OPENAI_BASE_URL="https://your-compatible-endpoint/v1"
 export OPENAI_API_KEY="..."
 export OPENAI_MODEL="gpt-4o-mini"
-./meeting-recorder summarize --transcript transcript.txt --use-api
+meeting-recorder summarize --transcript transcript.txt --use-api
 ```
 
-## Development and tests
+## Troubleshooting
+
+### `doctor` reports ffmpeg missing
+
+Install `ffmpeg` with your distro package manager and rerun `meeting-recorder doctor`.
+
+### Screen capture fails or output is empty
+
+Check that you are in an X11 session and that `DISPLAY` is set:
 
 ```bash
-cd /home/zachariah/meeting-recorder-app
-pytest -q
-./meeting-recorder status
+echo "$XDG_SESSION_TYPE $DISPLAY"
+meeting-recorder doctor --check display --check screen_size
 ```
 
-## Known limitations
+If auto-detection fails, pass `--size WIDTHxHEIGHT` and optionally `--display :0.0`.
 
-- MVP targets Linux/X11. Wayland capture may require a portal-based recorder such as OBS, wf-recorder, or desktop-specific tools.
-- Audio mixing is best-effort based on `pactl list short sources`.
-- `whisper.cpp` deployments vary; if your build needs custom model flags, use `faster-whisper` for the smoothest path or adapt `transcription.py`.
-- This is an early MVP release; GitHub hosts the source and downloadable tarball.
+### No system audio or microphone is captured
+
+Run `meeting-recorder doctor --check audio` and check `pactl list short sources`. PipeWire users may need the Pulse compatibility service. You can always record video only with `--no-system-audio --no-mic`.
+
+### GUI does not start
+
+Install tkinter for your distribution (`python3-tk`, `python3-tkinter`, or `tk`) and run `meeting-recorder doctor --check tkinter`.
+
+### Transcription says unavailable
+
+Install one of the supported local transcription engines. The fallback transcript is intentional and confirms that media was not uploaded.
+
+## Uninstall
+
+User-local installer:
+
+```bash
+~/.local/opt/meeting-recorder-app-0.2.0/uninstall.sh
+```
+
+Debian/Ubuntu package:
+
+```bash
+sudo apt remove meeting-recorder-app
+```
+
+Source checkout:
+
+```bash
+rm -rf /path/to/meeting-recorder-app
+```
+
+Your meeting recordings are not removed by uninstall commands. Delete `~/Meetings` manually if you no longer want the local data.
+
+## Development
+
+```bash
+cd meeting-recorder-app
+pytest -q
+python3 -m compileall src scripts
+python3 scripts/build_release_assets.py
+```
+
+Release artifacts are written to `dist/` and checksums to `dist/SHA256SUMS`.
+Verify them with `(cd dist && sha256sum -c SHA256SUMS)`.

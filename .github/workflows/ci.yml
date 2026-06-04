@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg python3-tk x11-utils pulseaudio-utils
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Compile Python sources
+        run: python -m compileall src scripts
+
+      - name: CLI smoke tests
+        run: |
+          ./meeting-recorder --help
+          ./meeting-recorder doctor || true
+          ./meeting-recorder doctor --json || true
+          ./meeting-recorder list --output-dir "$(mktemp -d)"
+
+      - name: Build release assets
+        run: python scripts/build_release_assets.py
+
+      - name: Verify checksums
+        run: cd dist && sha256sum -c SHA256SUMS
+
+      - name: Inspect release archive
+        run: |
+          tar -tzf dist/meeting-recorder-app-0.2.0-linux-source-installer.tar.gz | sort | tee /tmp/archive-files.txt
+          grep -q 'meeting-recorder-app-0.2.0/install.sh' /tmp/archive-files.txt
+          grep -q 'meeting-recorder-app-0.2.0/uninstall.sh' /tmp/archive-files.txt
+          grep -q 'meeting-recorder-app-0.2.0/meeting-recorder.desktop' /tmp/archive-files.txt
+
+      - name: Inspect Debian package when built
+        run: |
+          if [ -f dist/meeting-recorder-app_0.2.0_all.deb ]; then
+            dpkg-deb --info dist/meeting-recorder-app_0.2.0_all.deb
+            dpkg-deb --contents dist/meeting-recorder-app_0.2.0_all.deb | grep '/usr/bin/meeting-recorder'
+          fi

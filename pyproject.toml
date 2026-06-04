@@ -1,11 +1,11 @@
 [project]
 name = "meeting-recorder-app"
-version = "0.1.0"
-description = "Privacy-first local Linux MVP for screen/audio recording, organization, transcription fallback, and summaries"
+version = "0.2.0"
+description = "Privacy-first local Linux meeting recorder for screen/audio capture, organization, transcription fallback, and summaries"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
-authors = [{name = "Meeting Recorder MVP"}]
+authors = [{name = "Meeting Recorder Maintainers"}]
 dependencies = []
 
 [project.scripts]
