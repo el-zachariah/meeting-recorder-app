@@ -38,7 +38,7 @@ def pseudo_level(t: float | None = None, index: int = 0) -> float:
 class AudioLevelMonitor:
     """Best-effort audio level monitor placeholder.
 
-    v0.3.0 keeps recording reliability decoupled from metering. Future versions can
+    v0.4.0 keeps recording reliability decoupled from metering. Future versions can
     replace this with Pulse/PipeWire source RMS probing. Today it provides a smooth
     local animation and a clear status label instead of blocking release on Linux
     audio stack fragmentation.

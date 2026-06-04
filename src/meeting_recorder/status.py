@@ -9,7 +9,7 @@ import shutil
 import subprocess
 from typing import Iterable
 
-from .recorder import detect_audio_inputs, detect_screen_size
+from .recorder import detect_audio_inputs, detect_audio_sources, detect_screen_size
 from .transcription import engine_status
 
 
@@ -58,6 +58,30 @@ def _display_server() -> tuple[str | None, dict[str, str | None]]:
     if wayland:
         return "wayland", {"DISPLAY": display, "WAYLAND_DISPLAY": wayland}
     return None, {"DISPLAY": display, "WAYLAND_DISPLAY": wayland}
+
+
+def _audio_sources_checks() -> list[CheckItem]:
+    detection = detect_audio_sources()
+    legacy = detection.legacy_dict()
+    details: dict[str, str | bool | None] = {
+        **legacy,  # type: ignore[arg-type]
+        "system_source_count": str(len(detection.system_sources)),
+        "mic_source_count": str(len(detection.mic_sources)),
+    }
+    if detection.selected_system:
+        system = CheckItem("system_audio", "pass", f"System audio monitor detected: {detection.selected_system.name}", details)
+    else:
+        system = CheckItem(
+            "system_audio",
+            "warn",
+            "No PulseAudio/PipeWire monitor source detected; browser/app meeting audio will not be captured until this is fixed",
+            details,
+        )
+    if detection.selected_mic:
+        mic = CheckItem("microphone", "pass", f"Microphone source detected: {detection.selected_mic.name}", details)
+    else:
+        mic = CheckItem("microphone", "warn", "No microphone source detected", details)
+    return [system, mic]
 
 
 def _audio_sources_check() -> CheckItem:
@@ -112,7 +136,7 @@ def build_environment_report(output_dir: Path | str | None = None) -> Environmen
     elif server == "wayland":
         checks.append(CheckItem("display", "warn", "Wayland detected; x11grab recording may require an XWayland DISPLAY", env_details))
     else:
-        checks.append(CheckItem("display", "error", "No DISPLAY or WAYLAND_DISPLAY is set", env_details))
+        checks.append(CheckItem("display", "warn", "No DISPLAY or WAYLAND_DISPLAY is set; audio-first recording can still work, but optional screen video needs X11/XWayland", env_details))
 
     size = detect_screen_size()
     checks.append(
@@ -124,6 +148,7 @@ def build_environment_report(output_dir: Path | str | None = None) -> Environmen
         )
     )
 
+    checks.extend(_audio_sources_checks())
     checks.append(_audio_sources_check())
     checks.append(_tkinter_check())
 

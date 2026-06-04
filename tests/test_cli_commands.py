@@ -93,6 +93,7 @@ def test_gui_parser_accepts_mini():
 
 
 def test_record_start_failure_json(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr("meeting_recorder.cli._has_transcription_engine", lambda: True)
     monkeypatch.setattr("meeting_recorder.cli.start_recording", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no display")))
 
     code = main(["record", "--output-dir", str(tmp_path), "--json"])

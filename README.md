@@ -9,13 +9,13 @@ Meeting Recorder is designed for people who want meeting artifacts to stay on th
 From the source installer release asset:
 
 ```bash
-tar -xzf meeting-recorder-app-0.3.0-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.3.0
+tar -xzf meeting-recorder-app-0.4.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.4.0
 ./install.sh
 ~/.local/bin/meeting-recorder doctor
 ~/.local/bin/meeting-recorder gui
-# Optional compact always-on-top corner controller:
-~/.local/bin/meeting-recorder gui --mini
+# Optional legacy full dashboard:
+~/.local/bin/meeting-recorder gui --full
 ```
 
 Record from the CLI:
@@ -38,14 +38,14 @@ meeting-recorder open <meeting-id> --target summary
 ### Option 1: user-local source installer (recommended for most Linux users)
 
 ```bash
-tar -xzf meeting-recorder-app-0.3.0-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.3.0
+tar -xzf meeting-recorder-app-0.4.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.4.0
 ./install.sh
 ```
 
 This installs to:
 
-- app files: `~/.local/opt/meeting-recorder-app-0.3.0`
+- app files: `~/.local/opt/meeting-recorder-app-0.4.0`
 - command: `~/.local/bin/meeting-recorder`
 - desktop launcher: `~/.local/share/applications/meeting-recorder.desktop`
 
@@ -54,7 +54,7 @@ If `~/.local/bin` is not on your PATH, either add it or run `~/.local/bin/meetin
 ### Option 2: Debian/Ubuntu package
 
 ```bash
-sudo apt install ./meeting-recorder-app_0.3.0_all.deb
+sudo apt install ./meeting-recorder-app_0.4.0_all.deb
 meeting-recorder doctor
 meeting-recorder gui
 ```
@@ -95,9 +95,9 @@ sudo pacman -S python tk ffmpeg libpulse xorg-xdpyinfo
 
 Notes:
 
-- X11 sessions are currently the smoothest capture path because screen recording uses ffmpeg `x11grab`.
-- On Wayland, log into an Xorg session or use a compositor/portal-specific recorder until native portal capture is added.
-- Audio source detection is best-effort via PulseAudio/PipeWire Pulse compatibility (`pactl`).
+- Screen video is optional (`meeting-recorder record --video` or the GUI checkbox). Audio-only recording does not require X11 `DISPLAY`.
+- On Wayland, audio-first recording still works through PulseAudio/PipeWire when a monitor source exists; screen video still needs X11/XWayland until native portal capture is added.
+- Audio source detection uses PulseAudio/PipeWire Pulse compatibility through `pactl` when available and falls back to `ffmpeg -sources pulse`.
 
 ## First-run setup
 
@@ -114,15 +114,18 @@ The doctor checks ffmpeg, display/session state, screen size detection, audio so
 Common capture options:
 
 ```bash
-meeting-recorder record --title demo --size 1920x1080
-meeting-recorder record --title demo --display :0.0
-meeting-recorder record --title demo --no-system-audio --no-mic
+meeting-recorder record --title demo
+meeting-recorder record --title demo --video --size 1920x1080
+meeting-recorder record --title demo --video --display :0.0
+meeting-recorder record --title demo --no-mic
+meeting-recorder record --title screen-only --video --no-system-audio --no-mic
 meeting-recorder record --title demo --no-transcribe --no-summary
+meeting-recorder record --title demo --record-without-transcriber  # explicit recording-only fallback when Whisper is missing
 ```
 
 By default recordings are saved under `~/Meetings/YYYY-MM-DD_HH-MM-SS_title/` with:
 
-- `recording.mkv`
+- `recording.mka` for the default audio-first mode, or `recording.mkv` when screen video is enabled
 - `metadata.json`
 - `transcript.txt` when transcription runs or writes fallback instructions
 - `summary.md` when summary generation runs
@@ -130,15 +133,20 @@ By default recordings are saved under `~/Meetings/YYYY-MM-DD_HH-MM-SS_title/` wi
 
 ## Modern desktop workflow
 
-The v0.3.0 GUI is recorder-first: a large record/stop control, elapsed timer, privacy badge, setup checklist, capture options, recent meetings, and a live waveform-style activity indicator. The meter is best-effort and intentionally decoupled from recording success, so a metering issue will not stop a saved recording.
+The v0.4.0 GUI now launches as a compact, always-on-top recorder bar near the top-right of the screen. Click the bar to open the dropdown-style control panel. The panel focuses on what matters for meetings:
 
-For a small top-corner control surface, run:
+- system audio capture status, with a clear warning if meeting/app sound will not be recorded
+- microphone status
+- optional screen video checkbox, off by default
+- local transcriber readiness, with an explicit record-without-transcript action when Whisper is not installed
+- inline stop/save naming instead of a retro pop-up dialog
 
 ```bash
-meeting-recorder gui --mini
+meeting-recorder gui
+meeting-recorder gui --full   # legacy dashboard window
 ```
 
-Linux tray/top-bar support varies heavily by desktop environment, so v0.3.0 ships the dependency-free mini controller first instead of requiring fragile tray packages.
+Linux native tray APIs vary by desktop environment, so v0.4.0 keeps the dependency-free top-corner dropdown as the default instead of depending on fragile tray packages.
 
 ## Obsidian export
 
@@ -224,7 +232,7 @@ If auto-detection fails, pass `--size WIDTHxHEIGHT` and optionally `--display :0
 
 ### No system audio or microphone is captured
 
-Run `meeting-recorder doctor --check audio` and check `pactl list short sources`. PipeWire users may need the Pulse compatibility service. You can always record video only with `--no-system-audio --no-mic`.
+Run `meeting-recorder doctor --check system_audio --check microphone`. System audio means the PulseAudio/PipeWire monitor source for your speakers/headphones; without it, browser/video-call audio will not be recorded. The app now blocks selected system-audio recording when no monitor is detected instead of silently saving a video-only file. Install `pulseaudio-utils`, make sure `pipewire-pulse` or PulseAudio is running, then refresh setup. If you intentionally want mic-only recording, use `--no-system-audio` or uncheck System audio in the GUI.
 
 ### GUI does not start
 
@@ -239,7 +247,7 @@ Install one of the supported local transcription engines. The fallback transcrip
 User-local installer:
 
 ```bash
-~/.local/opt/meeting-recorder-app-0.3.0/uninstall.sh
+~/.local/opt/meeting-recorder-app-0.4.0/uninstall.sh
 ```
 
 Debian/Ubuntu package:

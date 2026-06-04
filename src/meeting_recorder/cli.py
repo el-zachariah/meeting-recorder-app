@@ -15,7 +15,7 @@ from .organizer import MeetingFolder, organize_recording
 from .recorder import start_recording, stop_recording
 from .status import build_environment_report, format_report_text
 from .summarizer import SummaryConfigurationError, summarize_transcript
-from .transcription import transcribe
+from .transcription import engine_status, transcribe
 
 DEFAULT_DIR = Path.home() / "Meetings"
 
@@ -24,13 +24,40 @@ def _print_json(data: object) -> None:
     print(json.dumps(data, indent=2, default=str))
 
 
+def _has_transcription_engine() -> bool:
+    status = engine_status()
+    return any(bool(value) for key, value in status.items() if key != "ffmpeg")
+
+
 def cmd_record(args: argparse.Namespace) -> int:
+    wants_transcript = not args.no_transcribe
+    if wants_transcript and not args.record_without_transcriber and not _has_transcription_engine():
+        msg = (
+            "No local Whisper-compatible transcriber is installed. Install faster-whisper, whisper.cpp/whisper-cli, or OpenAI Whisper CLI; "
+            "or rerun with --record-without-transcriber / --no-transcribe to save recording only."
+        )
+        if args.json:
+            _print_json({"ok": False, "error": msg, "missing": "transcriber"})
+        else:
+            print(msg, file=sys.stderr)
+        return 2
+    if args.record_without_transcriber:
+        args.no_transcribe = True
+        args.no_summary = True
+    if not args.video and args.no_system_audio and args.no_mic:
+        msg = "No recordable input selected. Enable system audio, enable microphone, or pass --video for screen-only capture."
+        if args.json:
+            _print_json({"ok": False, "error": msg, "missing": "input"})
+        else:
+            print(msg, file=sys.stderr)
+        return 2
     raw_dir = Path(args.raw_dir).expanduser() if args.raw_dir else Path(tempfile.mkdtemp(prefix="meeting-recorder-raw-"))
     raw_dir.mkdir(parents=True, exist_ok=True)
     os.chmod(raw_dir, 0o700)
-    raw_file = raw_dir / f"recording-{datetime.now().strftime('%Y%m%d-%H%M%S')}.mkv"
+    raw_file = raw_dir / f"recording-{datetime.now().strftime('%Y%m%d-%H%M%S')}.{'mkv' if args.video else 'mka'}"
     if not args.json:
-        print("Starting recording. Press Enter to stop.")
+        mode = "screen + audio" if args.video else "audio-first"
+        print(f"Starting {mode} recording. Press Enter to stop.")
     try:
         recorder = start_recording(
             raw_file,
@@ -39,6 +66,7 @@ def cmd_record(args: argparse.Namespace) -> int:
             display=args.display,
             include_system_audio=not args.no_system_audio,
             include_mic=not args.no_mic,
+            include_video=bool(args.video),
         )
     except RuntimeError as exc:
         if args.json:
@@ -202,7 +230,8 @@ def cmd_export_ai_prompt(args: argparse.Namespace) -> int:
 
 def cmd_gui(args: argparse.Namespace) -> int:
     from .gui import main as gui_main
-    gui_main(default_dir=Path(args.output_dir), mini=bool(getattr(args, "mini", False)))
+    compact = not bool(getattr(args, "full", False))
+    gui_main(default_dir=Path(args.output_dir), mini=bool(getattr(args, "mini", False)), compact=compact)
     return 0
 
 
@@ -210,16 +239,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Local-first Linux meeting recorder")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("record", help="Record screen + optional system audio/mic, then organize/transcribe/summarize")
+    p = sub.add_parser("record", help="Record audio-first meeting audio, optionally with screen video, then organize/transcribe/summarize")
     p.add_argument("--title", default="meeting")
     p.add_argument("--output-dir", default=str(DEFAULT_DIR))
     p.add_argument("--raw-dir", default=None, help="Private temporary raw recording directory. Defaults to a new 0700 temp dir per recording.")
-    p.add_argument("--fps", type=int, default=15)
-    p.add_argument("--size", default=None, help="Screen capture size, e.g. 1920x1080. Defaults to auto-detection or MEETING_RECORDER_SIZE")
+    p.add_argument("--fps", type=int, default=15, help="Video frame rate when --video is enabled")
+    p.add_argument("--video", action="store_true", help="Also record screen video. Off by default so meeting/system audio is the priority.")
+    p.add_argument("--size", default=None, help="Screen capture size for --video, e.g. 1920x1080. Defaults to auto-detection or MEETING_RECORDER_SIZE")
     p.add_argument("--display", default=None, help="X11 display to capture, e.g. :0.0. Defaults to DISPLAY")
     p.add_argument("--no-system-audio", action="store_true")
     p.add_argument("--no-mic", action="store_true")
     p.add_argument("--no-transcribe", action="store_true")
+    p.add_argument("--record-without-transcriber", action="store_true", help="Explicitly save recording only when no local Whisper-compatible transcriber is installed")
     p.add_argument("--no-summary", action="store_true", help="Skip summary generation after transcription")
     p.add_argument("--open", action="store_true", help="Open the meeting folder after recording")
     p.add_argument("--json", action="store_true", help="Print machine-readable result")
@@ -284,9 +315,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", choices=["claude", "claude-code", "codex", "chatgpt"], default="claude")
     p.set_defaults(func=cmd_export_ai_prompt)
 
-    p = sub.add_parser("gui", help="Launch modern Tk desktop GUI")
+    p = sub.add_parser("gui", help="Launch compact notification-bar style recorder")
     p.add_argument("--output-dir", default=str(DEFAULT_DIR))
-    p.add_argument("--mini", action="store_true", help="Launch compact always-on-top corner controller")
+    p.add_argument("--full", action="store_true", help="Launch the legacy full dashboard window")
+    p.add_argument("--mini", action="store_true", help=argparse.SUPPRESS)
     p.set_defaults(func=cmd_gui)
 
     return parser

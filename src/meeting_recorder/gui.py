@@ -8,11 +8,12 @@ import tempfile
 import threading
 import time
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog
+from tkinter import filedialog, messagebox
 from tkinter import ttk
 
 from .ai_export import export_ai_prompt
 from .audio_monitor import AudioLevelMonitor
+from .gui_models import CaptureSelections, SetupGate, bar_geometry, compact_bar_state, popover_geometry, setup_gate_from_report
 from .library import MeetingListItem, open_path, scan_meetings
 from .obsidian import export_meeting_to_obsidian
 from .organizer import MeetingFolder, organize_recording, rename_meeting_by_end_time, update_meeting_metadata
@@ -151,6 +152,7 @@ class MeetingRecorderGUI:
         self.dir_var = tk.StringVar(value=str(self.default_dir))
         self.fps_var = tk.IntVar(value=15)
         self.size_var = tk.StringVar(value="")
+        self.video_var = tk.BooleanVar(value=False)
         self.system_audio_var = tk.BooleanVar(value=True)
         self.mic_var = tk.BooleanVar(value=True)
         self.transcribe_var = tk.BooleanVar(value=True)
@@ -158,7 +160,7 @@ class MeetingRecorderGUI:
         self.stop_time_name_var = tk.BooleanVar(value=True)
         self.obsidian_vault_var = tk.StringVar(value="")
         self.obsidian_folder_var = tk.StringVar(value="Meetings")
-        self.status_var = tk.StringVar(value=progress_message("ready"))
+        self.status_var = tk.StringVar(value="Checking setup…")
         self.elapsed_var = tk.StringVar(value="00:00")
         self.privacy_var = tk.StringVar(value="LOCAL")
 
@@ -172,6 +174,7 @@ class MeetingRecorderGUI:
             self.refresh_dashboard()
             self.refresh_recent()
         self._tick_waveform()
+        self.refresh_setup_state()
 
     def _build_styles(self) -> None:
         style = ttk.Style(self.root)
@@ -289,16 +292,17 @@ class MeetingRecorderGUI:
         ttk.Label(parent, text="Size", style="Panel.TLabel").grid(row=3, column=0, sticky="w", pady=4)
         ttk.Entry(parent, textvariable=self.size_var).grid(row=3, column=1, sticky="ew", pady=4)
         ttk.Label(parent, text="blank = auto", style="PanelMuted.TLabel").grid(row=3, column=2, sticky="w", padx=(6, 0), pady=4)
-        ttk.Checkbutton(parent, text="System audio", variable=self.system_audio_var).grid(row=4, column=0, columnspan=3, sticky="w", pady=4)
-        ttk.Checkbutton(parent, text="Microphone", variable=self.mic_var).grid(row=5, column=0, columnspan=3, sticky="w", pady=4)
-        ttk.Checkbutton(parent, text="Transcribe after recording", variable=self.transcribe_var).grid(row=6, column=0, columnspan=3, sticky="w", pady=4)
-        ttk.Checkbutton(parent, text="Summarize after transcription", variable=self.summary_var).grid(row=7, column=0, columnspan=3, sticky="w", pady=4)
-        ttk.Checkbutton(parent, text="Name saved folder by stop time", variable=self.stop_time_name_var).grid(row=8, column=0, columnspan=3, sticky="w", pady=4)
-        ttk.Label(parent, text="Obsidian vault", style="Panel.TLabel").grid(row=9, column=0, sticky="w", pady=(12, 4))
-        ttk.Entry(parent, textvariable=self.obsidian_vault_var).grid(row=9, column=1, sticky="ew", pady=(12, 4))
-        ttk.Button(parent, text="Vault…", command=self.browse_obsidian).grid(row=9, column=2, padx=(6, 0), pady=(12, 4))
-        ttk.Label(parent, text="Vault folder", style="Panel.TLabel").grid(row=10, column=0, sticky="w", pady=4)
-        ttk.Entry(parent, textvariable=self.obsidian_folder_var).grid(row=10, column=1, columnspan=2, sticky="ew", pady=4)
+        ttk.Checkbutton(parent, text="Record screen video (optional)", variable=self.video_var, command=self.refresh_setup_state).grid(row=4, column=0, columnspan=3, sticky="w", pady=4)
+        ttk.Checkbutton(parent, text="System audio (meeting/app sound)", variable=self.system_audio_var, command=self.refresh_setup_state).grid(row=5, column=0, columnspan=3, sticky="w", pady=4)
+        ttk.Checkbutton(parent, text="Microphone", variable=self.mic_var, command=self.refresh_setup_state).grid(row=6, column=0, columnspan=3, sticky="w", pady=4)
+        ttk.Checkbutton(parent, text="Transcribe after recording", variable=self.transcribe_var, command=self.refresh_setup_state).grid(row=7, column=0, columnspan=3, sticky="w", pady=4)
+        ttk.Checkbutton(parent, text="Summarize after transcription", variable=self.summary_var, command=self.refresh_setup_state).grid(row=8, column=0, columnspan=3, sticky="w", pady=4)
+        ttk.Checkbutton(parent, text="Name saved folder by stop time", variable=self.stop_time_name_var).grid(row=9, column=0, columnspan=3, sticky="w", pady=4)
+        ttk.Label(parent, text="Obsidian vault", style="Panel.TLabel").grid(row=10, column=0, sticky="w", pady=(12, 4))
+        ttk.Entry(parent, textvariable=self.obsidian_vault_var).grid(row=10, column=1, sticky="ew", pady=(12, 4))
+        ttk.Button(parent, text="Vault…", command=self.browse_obsidian).grid(row=10, column=2, padx=(6, 0), pady=(12, 4))
+        ttk.Label(parent, text="Vault folder", style="Panel.TLabel").grid(row=11, column=0, sticky="w", pady=4)
+        ttk.Entry(parent, textvariable=self.obsidian_folder_var).grid(row=11, column=1, columnspan=2, sticky="ew", pady=4)
 
     def _build_actions(self, parent: ttk.Frame) -> None:
         ttk.Label(parent, text="Post-meeting workflows stay local unless you explicitly paste or enable an API elsewhere.", style="PanelMuted.TLabel", wraplength=280).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
@@ -341,6 +345,24 @@ class MeetingRecorderGUI:
         chosen = filedialog.askdirectory(initialdir=self.obsidian_vault_var.get() or str(Path.home()))
         if chosen:
             self.obsidian_vault_var.set(chosen)
+
+    def refresh_setup_state(self) -> SetupGate | None:
+        try:
+            gate = setup_gate_from_report(
+                build_environment_report(Path(self.dir_var.get())),
+                CaptureSelections(
+                    include_system_audio=bool(self.system_audio_var.get()),
+                    include_mic=bool(self.mic_var.get()),
+                    include_video=bool(self.video_var.get()),
+                    transcribe=bool(self.transcribe_var.get()),
+                    summarize=bool(self.summary_var.get()),
+                ),
+            )
+        except Exception as exc:
+            self.status_var.set(f"Setup check failed: {exc}")
+            return None
+        self.status_var.set(gate.message if gate.status != "ready" else progress_message("ready"))
+        return gate
 
     def refresh_dashboard(self) -> None:
         if self.mini:
@@ -388,11 +410,30 @@ class MeetingRecorderGUI:
         self.record_button.config(text=recording_button_text(is_recording, self.busy), bg=RECORD if is_recording else "#15171c")
 
     def start(self) -> None:
+        gate = self.refresh_setup_state()
+        if gate and not gate.can_start_selected_config:
+            if gate.suggested_action == "Record without system audio":
+                if messagebox.askyesno("System audio is not ready", f"{gate.message}\n\nRecord without system audio instead?"):
+                    self.system_audio_var.set(False)
+                    gate = self.refresh_setup_state()
+                else:
+                    return
+            elif gate.suggested_action == "Record without transcript":
+                if messagebox.askyesno("Local transcriber is not installed", f"{gate.message}\n\nRecord without transcript for now?"):
+                    self.transcribe_var.set(False)
+                    self.summary_var.set(False)
+                    gate = self.refresh_setup_state()
+                else:
+                    return
+            else:
+                messagebox.showwarning("Setup needed", "\n".join(gate.blocking or gate.warnings or [gate.message]))
+                return
         try:
             raw_dir = Path(tempfile.mkdtemp(prefix="meeting-recorder-raw-"))
             raw_dir.mkdir(parents=True, exist_ok=True)
             os.chmod(raw_dir, 0o700)
-            self.raw_file = raw_dir / f"gui-recording-{datetime.now().strftime('%Y%m%d-%H%M%S')}.mkv"
+            ext = "mkv" if self.video_var.get() else "mka"
+            self.raw_file = raw_dir / f"gui-recording-{datetime.now().strftime('%Y%m%d-%H%M%S')}.{ext}"
             size = self.size_var.get().strip() or None
             self.recorder = start_recording(
                 self.raw_file,
@@ -400,6 +441,7 @@ class MeetingRecorderGUI:
                 size=size,
                 include_system_audio=bool(self.system_audio_var.get()),
                 include_mic=bool(self.mic_var.get()),
+                include_video=bool(self.video_var.get()),
             )
         except Exception as exc:
             messagebox.showerror("Could not start recording", str(exc))
@@ -430,9 +472,7 @@ class MeetingRecorderGUI:
     def stop(self) -> None:
         if not self.recorder or not self.raw_file:
             return
-        title = simpledialog.askstring("Save meeting", "Meeting name", initialvalue=stop_title_default(self.title_var.get()), parent=self.root)
-        if title is None:
-            title = stop_title_default(self.title_var.get())
+        title = stop_title_default(self.title_var.get())
         self.title_var.set(title.strip() or stop_title_default(""))
         self.busy = True
         self.monitor.stop()
@@ -450,6 +490,10 @@ class MeetingRecorderGUI:
         try:
             self._stage("stopping")
             stop_recording(self.recorder)  # type: ignore[arg-type]
+            if not self.raw_file or not self.raw_file.exists() or self.raw_file.stat().st_size == 0:
+                log_path = self.recorder.stderr_log if self.recorder else None
+                log_note = f" ffmpeg log: {log_path}" if log_path else ""
+                raise RuntimeError(f"Recording failed or no output was produced.{log_note}")
             self._stage("organizing")
             meeting = organize_recording(
                 self.raw_file,
@@ -553,7 +597,183 @@ class MeetingRecorderGUI:
             self.status_var.set(f"AI prompt export failed: {exc}")
 
 
-def main(default_dir: Path, mini: bool = False) -> None:
+class CompactDropdownGUI(MeetingRecorderGUI):
+    """Compact notification-bar-style recorder with dropdown controls.
+
+    This intentionally stays dependency-free (Tk only) because Linux native tray APIs are fragmented.
+    It gives the user the requested top-corner/dropdown workflow without forcing a full dashboard window.
+    """
+
+    def __init__(self, root: tk.Tk, default_dir: Path):
+        super().__init__(root, default_dir, mini=True)
+        self.root.overrideredirect(True)
+        self.root.geometry(bar_geometry(self.root.winfo_screenwidth(), self.root.winfo_screenheight()))
+        self.popover: tk.Toplevel | None = None
+        self.root.bind("<Button-1>", lambda _event: self.toggle_popover())
+
+    def _build_mini_layout(self) -> None:
+        self.root.configure(bg=BG)
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        bar = tk.Frame(self.root, bg="#111318", padx=14, pady=8, highlightbackground=BORDER, highlightthickness=1)
+        bar.grid(row=0, column=0, sticky="nsew")
+        bar.columnconfigure(2, weight=1)
+        self.status_dot = tk.Label(bar, text="●", bg="#111318", fg=SUCCESS, font=("TkDefaultFont", 13, "bold"))
+        self.status_dot.grid(row=0, column=0, sticky="w", padx=(0, 8))
+        self.local_badge = tk.Label(bar, text="LOCAL", bg="#163225", fg=SUCCESS, font=("TkDefaultFont", 8, "bold"), padx=6, pady=2)
+        self.local_badge.grid(row=0, column=1, sticky="w", padx=(0, 8))
+        tk.Label(bar, textvariable=self.status_var, bg="#111318", fg=TEXT, font=("TkDefaultFont", 10, "bold"), anchor="w").grid(row=0, column=2, sticky="ew")
+        tk.Label(bar, textvariable=self.elapsed_var, bg="#111318", fg=TEXT, font=("TkDefaultFont", 12, "bold")).grid(row=0, column=3, padx=(10, 8))
+        self.record_button = tk.Button(bar, text="▾", command=self.toggle_popover, bg="#1D2230", fg=TEXT, activebackground="#2B3140", relief="flat", bd=0, padx=10, pady=4, cursor="hand2")
+        self.record_button.grid(row=0, column=4)
+        self.waveform = WaveformCanvas(bar, height=1)
+
+    def _apply_bar_state(self, gate: SetupGate | None = None, *, saved: bool = False) -> None:
+        is_recording = bool(self.recorder and self.recorder.process.poll() is None)
+        state = compact_bar_state(gate, recording=is_recording, busy=self.busy, saved=saved)
+        colors = {"success": SUCCESS, "warning": WARN, "error": RECORD, "recording": RECORD, "saving": WARN}
+        self.status_var.set(state.label)
+        if hasattr(self, "status_dot"):
+            self.status_dot.config(fg=colors[state.dot_color])
+        if hasattr(self, "record_button"):
+            command = self.show_stop_sheet if state.button_role == "stop" else (lambda: None if state.button_role == "disabled" else self.toggle_popover())
+            self.record_button.config(
+                text=state.button_text,
+                command=command,
+                bg=RECORD if state.button_role == "stop" else "#1D2230",
+                state="disabled" if state.button_role == "disabled" else "normal",
+            )
+
+    def refresh_setup_state(self) -> SetupGate | None:
+        gate = super().refresh_setup_state()
+        self._apply_bar_state(gate)
+        return gate
+
+    def _update_record_button(self) -> None:
+        self._apply_bar_state(None)
+
+    def toggle_recording(self) -> None:
+        if self.busy:
+            return
+        if self.recorder and self.recorder.process.poll() is None:
+            self.show_stop_sheet()
+        else:
+            self.start()
+            self.render_popover()
+
+    def toggle_popover(self) -> None:
+        if self.popover and self.popover.winfo_exists():
+            self.popover.destroy()
+            self.popover = None
+            return
+        self.render_popover()
+
+    def render_popover(self) -> None:
+        if self.popover and self.popover.winfo_exists():
+            self.popover.destroy()
+        self.popover = tk.Toplevel(self.root)
+        self.popover.overrideredirect(True)
+        self.popover.configure(bg=BG, highlightbackground=BORDER, highlightthickness=1)
+        self.popover.attributes("-topmost", True)
+        self.popover.geometry(popover_geometry(self.root.winfo_screenwidth(), self.root.winfo_screenheight()))
+        self.popover.bind("<Escape>", lambda _event: self.toggle_popover())
+        outer = ttk.Frame(self.popover, padding=16, style="Panel.TFrame")
+        outer.pack(fill="both", expand=True)
+        outer.columnconfigure(0, weight=1)
+        tk.Label(outer, text="Meeting Recorder", bg=PANEL, fg=TEXT, font=("TkDefaultFont", 18, "bold"), anchor="w").grid(row=0, column=0, sticky="ew")
+        tk.Label(outer, text="Local-first audio capture. System audio is the priority; video is optional.", bg=PANEL, fg=MUTED, anchor="w", wraplength=380).grid(row=1, column=0, sticky="ew", pady=(2, 12))
+        self._render_popover_body(outer)
+
+    def _render_popover_body(self, parent: tk.Widget) -> None:
+        gate = self.refresh_setup_state()
+        status_text = gate.message if gate else self.status_var.get()
+        color = SUCCESS if gate and gate.status == "ready" else (RECORD if gate and gate.status == "blocked" else WARN)
+        tk.Label(parent, text=status_text, bg=PANEL, fg=color, wraplength=390, justify="left", anchor="w").grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        if gate and (gate.blocking or gate.warnings):
+            issues = gate.blocking + [w for w in gate.warnings if w not in gate.blocking]
+            issue_text = "\n".join(f"• {issue}" for issue in issues[:4])
+            tk.Label(parent, text=issue_text, bg=PANEL, fg=MUTED, wraplength=390, justify="left", anchor="w").grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        form = ttk.Frame(parent, style="Panel.TFrame")
+        form.grid(row=4, column=0, sticky="ew")
+        form.columnconfigure(1, weight=1)
+        ttk.Label(form, text="Meeting name", style="Panel.TLabel").grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Entry(form, textvariable=self.title_var).grid(row=0, column=1, sticky="ew", pady=4)
+        ttk.Checkbutton(form, text="System audio (meeting/app sound)", variable=self.system_audio_var, command=self.render_popover).grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Checkbutton(form, text="Microphone", variable=self.mic_var, command=self.render_popover).grid(row=2, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Checkbutton(form, text="Record screen video (optional)", variable=self.video_var, command=self.render_popover).grid(row=3, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Checkbutton(form, text="Transcribe after recording", variable=self.transcribe_var, command=self.render_popover).grid(row=4, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Checkbutton(form, text="Summarize after transcript", variable=self.summary_var, command=self.render_popover).grid(row=5, column=0, columnspan=2, sticky="w", pady=4)
+        actions = ttk.Frame(parent, style="Panel.TFrame")
+        actions.grid(row=5, column=0, sticky="ew", pady=(16, 10))
+        actions.columnconfigure(0, weight=1)
+        is_recording = bool(self.recorder and self.recorder.process.poll() is None)
+        cta = "Stop & Save Meeting" if is_recording else (gate.suggested_action if gate else "Start Recording")
+        bg = RECORD if is_recording else (WARN if gate and not gate.can_start_selected_config else ACCENT)
+        command = self._primary_action if not is_recording else self.toggle_recording
+        tk.Button(actions, text=cta, command=command, bg=bg, fg=TEXT, activebackground=bg, relief="flat", bd=0, pady=12, font=("TkDefaultFont", 12, "bold"), cursor="hand2").grid(row=0, column=0, sticky="ew")
+        if gate and gate.suggested_action == "Record without system audio":
+            ttk.Button(actions, text="Uncheck system audio", command=self._record_without_system_audio).grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        if gate and gate.suggested_action == "Record without transcript":
+            ttk.Button(actions, text="Record without transcript", command=self._record_without_transcript).grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        tk.Label(parent, text="Privacy: no uploads by default. Recordings and transcripts stay on this computer.", bg=PANEL, fg=MUTED, wraplength=390, justify="left", anchor="w").grid(row=6, column=0, sticky="ew", pady=(8, 0))
+        if self.current_meeting:
+            transcript = "transcript ready" if self.current_meeting.transcript_path.exists() else "transcript skipped/unavailable"
+            summary = "summary ready" if self.current_meeting.summary_path.exists() else "summary skipped/unavailable"
+            tk.Label(parent, text=f"Saved recording ✓\n{transcript}\n{summary}", bg=PANEL, fg=SUCCESS, wraplength=390, justify="left", anchor="w").grid(row=7, column=0, sticky="ew", pady=(12, 0))
+            ttk.Button(parent, text="Open saved meeting folder", command=lambda: self._open_current("folder")).grid(row=8, column=0, sticky="ew", pady=(12, 0))
+
+    def _primary_action(self) -> None:
+        gate = self.refresh_setup_state()
+        if gate and gate.suggested_action == "Record without system audio":
+            self.system_audio_var.set(False)
+            self.start()
+            self.render_popover()
+            return
+        if gate and gate.suggested_action == "Record without transcript":
+            self.transcribe_var.set(False)
+            self.summary_var.set(False)
+            self.start()
+            self.render_popover()
+            return
+        if gate and not gate.can_start_selected_config:
+            self.render_popover()
+            return
+        self.start()
+        self.render_popover()
+
+    def _record_without_system_audio(self) -> None:
+        self.system_audio_var.set(False)
+        self.render_popover()
+
+    def _record_without_transcript(self) -> None:
+        self.transcribe_var.set(False)
+        self.summary_var.set(False)
+        self.render_popover()
+
+    def show_stop_sheet(self) -> None:
+        if not self.popover or not self.popover.winfo_exists():
+            self.render_popover()
+        assert self.popover is not None
+        for child in self.popover.winfo_children():
+            child.destroy()
+        frame = ttk.Frame(self.popover, padding=16, style="Panel.TFrame")
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        tk.Label(frame, text="Save meeting", bg=PANEL, fg=TEXT, font=("TkDefaultFont", 18, "bold"), anchor="w").grid(row=0, column=0, sticky="ew")
+        ttk.Entry(frame, textvariable=self.title_var).grid(row=1, column=0, sticky="ew", pady=(16, 10))
+        tk.Button(frame, text="Save", command=self.stop, bg=RECORD, fg=TEXT, relief="flat", bd=0, pady=12, font=("TkDefaultFont", 12, "bold")).grid(row=2, column=0, sticky="ew")
+
+    def _finish(self, stage: str, msg: str, meeting: MeetingFolder | None) -> None:
+        super()._finish(stage, msg, meeting)
+        self._apply_bar_state(None, saved=bool(meeting and stage == "complete"))
+        if self.popover and self.popover.winfo_exists():
+            self.render_popover()
+
+
+def main(default_dir: Path, mini: bool = False, compact: bool = True) -> None:
     root = tk.Tk()
-    MeetingRecorderGUI(root, default_dir, mini=mini)
+    if compact and not mini:
+        CompactDropdownGUI(root, default_dir)
+    else:
+        MeetingRecorderGUI(root, default_dir, mini=mini)
     root.mainloop()

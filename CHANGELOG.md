@@ -2,28 +2,29 @@
 
 All notable changes to Meeting Recorder are documented here.
 
-## 0.3.0 - 2026-06-04
+## 0.4.0 - 2026-06-04
 
 ### Added
 
-- Modern dark recorder-first GUI with large record/stop control, elapsed timer, privacy badge, and waveform-style activity indicator.
-- Compact `meeting-recorder gui --mini` always-on-top corner controller.
-- Stop-time meeting naming flow and richer metadata: start/end time, duration, network/provider/model audit fields, and uploaded-artifacts list.
-- Obsidian vault export via `meeting-recorder export-obsidian`, with frontmatter, transcript/summary content, and local file links.
-- Claude/Codex-ready prompt export via `meeting-recorder export-ai-prompt` without reading account credentials.
-- Tests for Obsidian export, AI prompt export, modern GUI helper models, metadata, and new CLI commands.
+- Audio-first recording is now the default: saves `.mka` meeting audio unless optional screen video is explicitly enabled.
+- PulseAudio/PipeWire system-audio monitor detection now prefers the default output monitor and falls back to `ffmpeg -sources pulse` when `pactl` is unavailable.
+- Compact notification-bar-style dropdown UI is now the default `meeting-recorder gui` experience, with the full dashboard preserved behind `--full`.
+- Setup gating now warns before recording when selected system audio or local transcription is not ready.
+- Explicit CLI fallback: `--record-without-transcriber` records without pretending transcription is configured.
+- Tests for audio-source fallback, no-input blocking, compact bar state, and parser changes.
 
 ### Changed
 
-- GUI now emphasizes daily-use recording workflow first, with setup/capture/export details still available.
-- Meeting folders can be renamed around the stop/end time to match how users remember meetings.
-- Privacy documentation now explicitly distinguishes local prompt export from cloud/API account integration.
+- Screen video is optional (`--video`) instead of the default path, so the app focuses on meeting/app sound first.
+- Missing screen display is a warning for audio-first recording but still blocks selected screen-video workflows.
+- Compact UI uses an inline stop/save sheet, local privacy badge, truthful setup state, and post-save artifact status.
+- Docs now explain system audio as the speaker/headphone monitor source needed for browser and meeting-app sound.
 
 ### Privacy
 
 - The app still uploads nothing by default.
-- Claude Code/Codex accounts are not scraped or automated; prompt export is a local file workflow.
-- Obsidian export links media by default instead of copying recordings into potentially synced vaults.
+- Transcription remains local-only unless the user installs and selects a local Whisper-compatible engine.
+- API summaries remain opt-in and require explicit API environment configuration.
 
 ## 0.2.0 - 2026-06-04
 
