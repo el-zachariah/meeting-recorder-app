@@ -29,4 +29,4 @@ All notable changes to Meeting Recorder are documented here.
 
 ## 0.1.0
 
-- Initial Linux local recording prototype with CLI launcher, simple GUI, ffmpeg capture, meeting-folder organization, transcription fallback, and summary generation.
+- Initial Linux local recording release with CLI launcher, desktop GUI, ffmpeg capture, meeting-folder organization, transcription fallback, and summary generation.

@@ -55,6 +55,7 @@ def test_release_source_installer_has_expected_files_and_excludes_caches(tmp_pat
         ".pyc",
         "/.venv/",
         "/Meetings/",
+        "/docs/plans/",
     ]
     assert not any(any(fragment in name for fragment in forbidden_fragments) for name in names)
 
@@ -84,6 +85,8 @@ def test_debian_package_contains_launcher_when_dpkg_deb_available(tmp_path):
     contents = subprocess.check_output(["dpkg-deb", "--contents", str(deb)], text=True)
     assert "/usr/bin/meeting-recorder" in contents
     assert "/usr/share/applications/meeting-recorder.desktop" in contents
+    assert "-rw-r--r-- root/root" in contents
+    assert "-rw------- root/root" not in contents
     info = subprocess.check_output(["dpkg-deb", "--info", str(deb)], text=True)
     assert "Version: 0.2.0" in info
     assert "Depends: python3 (>= 3.10), python3-tk, ffmpeg" in info
@@ -98,6 +101,7 @@ def test_exclusion_rules_cover_private_and_generated_paths(tmp_path):
         root / "src" / "pkg.egg-info" / "PKG-INFO",
         root / "src" / "meeting_recorder" / "__pycache__" / "cli.cpython-311.pyc",
         root / "Meetings" / "private" / "recording.mkv",
+        root / "docs" / "plans" / "internal.md",
     ]
     for path in paths:
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -72,6 +72,8 @@ def read_version(root: Path) -> str:
 def is_excluded(path: Path, root: Path) -> bool:
     rel = path.relative_to(root)
     parts = rel.parts
+    if len(parts) >= 2 and parts[0] == "docs" and parts[1] == "plans":
+        return True
     if any(part in EXCLUDED_DIR_NAMES for part in parts):
         return True
     if any(part.endswith(tuple(EXCLUDED_PART_SUFFIXES)) for part in parts):
@@ -103,6 +105,17 @@ def copy_source_tree(root: Path, target: Path) -> None:
         dest = target / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, dest)
+
+
+def normalize_tree_permissions(root: Path) -> None:
+    """Make packaged application files readable/executable for normal users."""
+    for path in root.rglob("*"):
+        if path.is_dir():
+            path.chmod(0o755)
+        elif path.is_file():
+            executable_names = {COMMAND_NAME, "meeting-recorder", "install.sh", "uninstall.sh"}
+            mode = 0o755 if path.name in executable_names or path.suffix == ".sh" else 0o644
+            path.chmod(mode)
 
 
 def write_executable(path: Path, content: str) -> None:
@@ -186,6 +199,7 @@ def build_source_installer(root: Path, dist: Path, version: str, epoch: int) -> 
         write_executable(staging_root / "install.sh", install_script(version))
         write_executable(staging_root / "uninstall.sh", uninstall_script(version))
         (staging_root / "meeting-recorder.desktop").write_text(desktop_file(f"$HOME/.local/bin/{COMMAND_NAME}"), encoding="utf-8")
+        normalize_tree_permissions(staging_root)
         with tarfile.open(asset, "w:gz", compresslevel=9) as tar:
             for path in sorted(staging_root.rglob("*")):
                 rel = path.relative_to(staging_root.parent)
@@ -201,6 +215,7 @@ def build_deb(root: Path, dist: Path, version: str, epoch: int) -> Path | None:
         package_root = Path(td) / "pkg"
         app_dir = package_root / "opt" / PROJECT_SLUG
         copy_source_tree(root, app_dir)
+        normalize_tree_permissions(app_dir)
         write_executable(package_root / "usr" / "bin" / COMMAND_NAME, '''#!/usr/bin/env bash
 set -euo pipefail
 APP_DIR="/opt/meeting-recorder-app"
@@ -209,6 +224,7 @@ exec python3 -m meeting_recorder.cli "$@"
 ''')
         (package_root / "usr" / "share" / "applications").mkdir(parents=True, exist_ok=True)
         (package_root / "usr" / "share" / "applications" / f"{APP_ID}.desktop").write_text(desktop_file(f"/usr/bin/{COMMAND_NAME}"), encoding="utf-8")
+        normalize_tree_permissions(package_root / "usr")
         control_dir = package_root / "DEBIAN"
         control_dir.mkdir(parents=True, exist_ok=True)
         installed_size = max(1, sum(p.stat().st_size for p in package_root.rglob("*") if p.is_file()) // 1024)
