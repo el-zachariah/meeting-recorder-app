@@ -1,0 +1,16 @@
+[project]
+name = "meeting-recorder-app"
+version = "0.1.0"
+description = "Privacy-first local Linux MVP for screen/audio recording, organization, transcription fallback, and summaries"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Meeting Recorder MVP"}]
+dependencies = []
+
+[project.scripts]
+meeting-recorder = "meeting_recorder.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
