@@ -14,11 +14,17 @@ a an and are as at be by for from has have i in is it its of on or that the this
 """.split())
 
 
+class SummaryConfigurationError(RuntimeError):
+    pass
+
+
 def summarize_transcript(transcript_path: Path, output_path: Path, max_sentences: int = 6, use_api: bool = False) -> str:
     transcript_path = Path(transcript_path)
     output_path = Path(output_path)
     text = transcript_path.read_text(encoding="utf-8") if transcript_path.exists() else ""
-    if use_api and os.environ.get("OPENAI_API_KEY") and os.environ.get("OPENAI_BASE_URL"):
+    if use_api and (not os.environ.get("OPENAI_API_KEY") or not os.environ.get("OPENAI_BASE_URL")):
+        raise SummaryConfigurationError("--use-api requires OPENAI_API_KEY and OPENAI_BASE_URL to be set")
+    if use_api:
         summary = _summarize_openai_compatible(text)
     else:
         summary = _local_extractive_summary(text, max_sentences=max_sentences)
@@ -39,8 +45,8 @@ def _clean_transcript(text: str) -> str:
 
 def _local_extractive_summary(text: str, max_sentences: int = 6) -> str:
     clean = _clean_transcript(text)
-    if not clean.strip() or "No supported local Whisper" in text:
-        return "# Summary\n\nNo transcript content is available yet. Record/transcribe a meeting first, then generate a summary.\n"
+    if not clean.strip() or "No supported local Whisper" in text or text.lstrip().startswith("# Transcript failed"):
+        return "# Summary\n\nNo transcript content is available yet. Record/transcribe a meeting first, or fix the transcription failure noted in transcript.txt, then generate a summary.\n"
     sentences = [s.strip() for s in SENTENCE_RE.split(clean) if len(s.strip()) > 20]
     if not sentences:
         sentences = [clean.strip()]

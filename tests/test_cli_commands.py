@@ -67,3 +67,15 @@ def test_record_start_failure_json(monkeypatch, tmp_path, capsys):
     data = json.loads(capsys.readouterr().out)
     assert data["ok"] is False
     assert "no display" in data["error"]
+
+
+def test_summarize_use_api_missing_env_is_explicit(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    transcript = tmp_path / "transcript.txt"
+    transcript.write_text("hello", encoding="utf-8")
+
+    code = main(["summarize", "--transcript", str(transcript), "--use-api"])
+
+    assert code == 2
+    assert "OPENAI_API_KEY" in capsys.readouterr().err

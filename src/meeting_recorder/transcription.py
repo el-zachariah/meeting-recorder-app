@@ -11,6 +11,23 @@ class TranscriptionUnavailable(RuntimeError):
     pass
 
 
+def failure_report(media_path: Path, error: BaseException | str, engine: str | None = None) -> str:
+    engine_line = f"Engine: {engine}\n" if engine else ""
+    return f"""# Transcript failed
+
+Transcription could not be completed, but your recording was saved.
+
+{engine_line}Recording saved at: {media_path}
+Error: {error}
+
+You can retry after fixing the engine setup:
+
+./meeting-recorder transcribe --media "{media_path}"
+
+This app does not upload recordings or transcripts by default.
+"""
+
+
 def engine_status() -> dict[str, str | None]:
     return {
         "faster_whisper_python": _has_faster_whisper(),
@@ -43,19 +60,28 @@ def transcribe(media_path: Path, output_path: Path, model: str = "base") -> str:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if _has_faster_whisper():
-        text = _transcribe_faster_whisper(media_path, model)
+        try:
+            text = _transcribe_faster_whisper(media_path, model)
+        except Exception as exc:
+            text = failure_report(media_path, exc, "faster-whisper")
         output_path.write_text(text, encoding="utf-8")
         return text
 
     whisper_cpp = shutil.which("whisper-cli") or shutil.which("main") or shutil.which("whisper.cpp")
     if whisper_cpp:
-        text = _transcribe_whisper_cpp(whisper_cpp, media_path)
+        try:
+            text = _transcribe_whisper_cpp(whisper_cpp, media_path)
+        except Exception as exc:
+            text = failure_report(media_path, exc, "whisper.cpp")
         output_path.write_text(text, encoding="utf-8")
         return text
 
     whisper_cli = shutil.which("whisper")
     if whisper_cli:
-        text = _transcribe_openai_whisper_cli(whisper_cli, media_path, model)
+        try:
+            text = _transcribe_openai_whisper_cli(whisper_cli, media_path, model)
+        except Exception as exc:
+            text = failure_report(media_path, exc, "openai-whisper CLI")
         output_path.write_text(text, encoding="utf-8")
         return text
 

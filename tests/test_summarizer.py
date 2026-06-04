@@ -1,4 +1,6 @@
-from meeting_recorder.summarizer import summarize_transcript
+import pytest
+
+from meeting_recorder.summarizer import SummaryConfigurationError, summarize_transcript
 
 
 def test_local_summary_extracts_key_points_and_actions(tmp_path):
@@ -25,3 +27,20 @@ def test_summary_handles_empty_transcript(tmp_path):
     out = tmp_path / "summary.md"
     summary = summarize_transcript(transcript, out)
     assert "No transcript content" in summary
+
+
+def test_summary_handles_failed_transcript(tmp_path):
+    transcript = tmp_path / "transcript.txt"
+    transcript.write_text("# Transcript failed\n\nError: model missing", encoding="utf-8")
+    out = tmp_path / "summary.md"
+    summary = summarize_transcript(transcript, out)
+    assert "fix the transcription failure" in summary
+
+
+def test_use_api_requires_env_vars(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    transcript = tmp_path / "transcript.txt"
+    transcript.write_text("hello", encoding="utf-8")
+    with pytest.raises(SummaryConfigurationError, match="OPENAI_API_KEY"):
+        summarize_transcript(transcript, tmp_path / "summary.md", use_api=True)

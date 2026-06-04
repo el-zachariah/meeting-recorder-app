@@ -12,7 +12,7 @@ from .library import describe_meeting, open_path, resolve_meeting_path, scan_mee
 from .organizer import organize_recording
 from .recorder import start_recording, stop_recording
 from .status import build_environment_report, format_report_text
-from .summarizer import summarize_transcript
+from .summarizer import SummaryConfigurationError, summarize_transcript
 from .transcription import transcribe
 
 DEFAULT_DIR = Path.home() / "Meetings"
@@ -103,7 +103,11 @@ def cmd_transcribe(args: argparse.Namespace) -> int:
 def cmd_summarize(args: argparse.Namespace) -> int:
     transcript = Path(args.transcript).expanduser().resolve()
     out = Path(args.output).expanduser().resolve() if args.output else transcript.parent / "summary.md"
-    summarize_transcript(transcript, out, use_api=args.use_api)
+    try:
+        summarize_transcript(transcript, out, use_api=args.use_api)
+    except SummaryConfigurationError as exc:
+        print(f"Summary configuration error: {exc}", file=sys.stderr)
+        return 2
     print(f"Wrote {out}")
     return 0
 
