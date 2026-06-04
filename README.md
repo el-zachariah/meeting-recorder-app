@@ -1,6 +1,6 @@
 # Meeting Recorder
 
-Local-first Linux meeting recorder for screen capture, system audio/microphone capture where available, private meeting organization, local transcription fallback, and summaries.
+Local-first Linux meeting recorder for screen capture, system audio/microphone capture where available, private meeting organization, local transcription fallback, summaries, Obsidian export, and Claude/Codex-ready prompt export.
 
 Meeting Recorder is designed for people who want meeting artifacts to stay on their own computer by default. It records into timestamped folders under `~/Meetings`, writes metadata, can transcribe with locally installed Whisper-compatible tools, and can summarize transcripts without sending recordings anywhere.
 
@@ -9,11 +9,13 @@ Meeting Recorder is designed for people who want meeting artifacts to stay on th
 From the source installer release asset:
 
 ```bash
-tar -xzf meeting-recorder-app-0.2.0-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.2.0
+tar -xzf meeting-recorder-app-0.3.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.3.0
 ./install.sh
 ~/.local/bin/meeting-recorder doctor
 ~/.local/bin/meeting-recorder gui
+# Optional compact always-on-top corner controller:
+~/.local/bin/meeting-recorder gui --mini
 ```
 
 Record from the CLI:
@@ -36,14 +38,14 @@ meeting-recorder open <meeting-id> --target summary
 ### Option 1: user-local source installer (recommended for most Linux users)
 
 ```bash
-tar -xzf meeting-recorder-app-0.2.0-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.2.0
+tar -xzf meeting-recorder-app-0.3.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.3.0
 ./install.sh
 ```
 
 This installs to:
 
-- app files: `~/.local/opt/meeting-recorder-app-0.2.0`
+- app files: `~/.local/opt/meeting-recorder-app-0.3.0`
 - command: `~/.local/bin/meeting-recorder`
 - desktop launcher: `~/.local/share/applications/meeting-recorder.desktop`
 
@@ -52,7 +54,7 @@ If `~/.local/bin` is not on your PATH, either add it or run `~/.local/bin/meetin
 ### Option 2: Debian/Ubuntu package
 
 ```bash
-sudo apt install ./meeting-recorder-app_0.2.0_all.deb
+sudo apt install ./meeting-recorder-app_0.3.0_all.deb
 meeting-recorder doctor
 meeting-recorder gui
 ```
@@ -125,6 +127,40 @@ By default recordings are saved under `~/Meetings/YYYY-MM-DD_HH-MM-SS_title/` wi
 - `transcript.txt` when transcription runs or writes fallback instructions
 - `summary.md` when summary generation runs
 
+
+## Modern desktop workflow
+
+The v0.3.0 GUI is recorder-first: a large record/stop control, elapsed timer, privacy badge, setup checklist, capture options, recent meetings, and a live waveform-style activity indicator. The meter is best-effort and intentionally decoupled from recording success, so a metering issue will not stop a saved recording.
+
+For a small top-corner control surface, run:
+
+```bash
+meeting-recorder gui --mini
+```
+
+Linux tray/top-bar support varies heavily by desktop environment, so v0.3.0 ships the dependency-free mini controller first instead of requiring fragile tray packages.
+
+## Obsidian export
+
+Export a saved meeting into an Obsidian vault as a Markdown note with YAML frontmatter, summary, transcript content, and local file links:
+
+```bash
+meeting-recorder export-obsidian latest --vault ~/Obsidian/MyVault --folder Meetings
+```
+
+By default media is linked from its local meeting folder instead of copied into your vault, which avoids bloating Obsidian Sync or other synced vaults. If you intentionally want copies, use `--copy-text-artifacts` for transcript/summary copies or `--copy-media` for recording media.
+
+## Claude/Codex prompt export
+
+Meeting Recorder does **not** scrape Claude Code or Codex credentials and does not treat those developer tools as hidden transcription APIs. Instead, it can write a local prompt that you can paste into Claude, Claude Code, Codex, or ChatGPT yourself:
+
+```bash
+meeting-recorder export-ai-prompt latest --target claude-code
+meeting-recorder export-ai-prompt latest --target codex
+```
+
+This keeps account access under your control and makes any cloud AI use explicit.
+
 ## Local transcription
 
 Transcription runs only when a compatible local engine is installed. If none is found, Meeting Recorder writes a clear `transcript.txt` explaining what to install rather than uploading media.
@@ -157,6 +193,8 @@ MEETING_RECORDER_OFFLINE=1 meeting-recorder transcribe --media recording.mkv --m
 - Temporary raw recording directories are created with user-only permissions where practical.
 - Meeting folders and artifacts are created with private permissions where practical.
 - API summaries are disabled unless you explicitly pass `summarize --use-api` and provide `OPENAI_BASE_URL` plus `OPENAI_API_KEY`.
+- Claude/Codex prompt export writes a local Markdown prompt only; it does not read credentials or upload anything.
+- Obsidian export writes local Markdown notes and file links by default; copying media into a synced vault is opt-in.
 
 Opt-in API summary example:
 
@@ -201,7 +239,7 @@ Install one of the supported local transcription engines. The fallback transcrip
 User-local installer:
 
 ```bash
-~/.local/opt/meeting-recorder-app-0.2.0/uninstall.sh
+~/.local/opt/meeting-recorder-app-0.3.0/uninstall.sh
 ```
 
 Debian/Ubuntu package:

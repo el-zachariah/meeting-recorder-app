@@ -99,6 +99,11 @@ def resolve_meeting_path(recordings_dir: Path | str, meeting: str | Path) -> Pat
         return candidate.resolve()
     base = Path(recordings_dir).expanduser()
     token = str(meeting)
+    if token == "latest":
+        items = scan_meetings(base)
+        if not items:
+            raise FileNotFoundError("No meetings found")
+        return items[0].path.resolve()
     exact = base / token
     if exact.exists():
         return exact.resolve()

@@ -8,8 +8,10 @@ from pathlib import Path
 import sys
 import tempfile
 
+from .ai_export import export_ai_prompt
 from .library import describe_meeting, open_path, resolve_meeting_path, scan_meetings
-from .organizer import organize_recording
+from .obsidian import export_meeting_to_obsidian
+from .organizer import MeetingFolder, organize_recording
 from .recorder import start_recording, stop_recording
 from .status import build_environment_report, format_report_text
 from .summarizer import SummaryConfigurationError, summarize_transcript
@@ -173,9 +175,34 @@ def cmd_open(args: argparse.Namespace) -> int:
     return 0
 
 
+def _meeting_folder_from_item(item) -> MeetingFolder:
+    media_path = item.media_path
+    return MeetingFolder(item.path, media_path, item.path / "transcript.txt", item.path / "summary.md", item.path / "metadata.json")
+
+
+def cmd_export_obsidian(args: argparse.Namespace) -> int:
+    item = describe_meeting(Path(args.output_dir), args.meeting)
+    note_path = export_meeting_to_obsidian(
+        _meeting_folder_from_item(item),
+        Path(args.vault),
+        folder=args.folder,
+        copy_media=args.copy_media,
+        copy_text_artifacts=args.copy_text_artifacts,
+    )
+    print(note_path)
+    return 0
+
+
+def cmd_export_ai_prompt(args: argparse.Namespace) -> int:
+    item = describe_meeting(Path(args.output_dir), args.meeting)
+    prompt_path = export_ai_prompt(_meeting_folder_from_item(item), target=args.target)
+    print(prompt_path)
+    return 0
+
+
 def cmd_gui(args: argparse.Namespace) -> int:
     from .gui import main as gui_main
-    gui_main(default_dir=Path(args.output_dir))
+    gui_main(default_dir=Path(args.output_dir), mini=bool(getattr(args, "mini", False)))
     return 0
 
 
@@ -242,8 +269,24 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", choices=["folder", "media", "transcript", "summary"], default="folder")
     p.set_defaults(func=cmd_open)
 
-    p = sub.add_parser("gui", help="Launch simple Tk desktop GUI")
+    p = sub.add_parser("export-obsidian", help="Export a meeting note into an Obsidian vault")
+    p.add_argument("meeting")
     p.add_argument("--output-dir", default=str(DEFAULT_DIR))
+    p.add_argument("--vault", required=True, help="Path to your Obsidian vault")
+    p.add_argument("--folder", default="Meetings", help="Folder inside the vault for notes")
+    p.add_argument("--copy-media", action="store_true", help="Copy recording media into the vault (off by default to avoid sync bloat)")
+    p.add_argument("--copy-text-artifacts", action="store_true", help="Copy transcript/summary into vault assets and link to those copies")
+    p.set_defaults(func=cmd_export_obsidian)
+
+    p = sub.add_parser("export-ai-prompt", help="Write a local Claude/Codex-ready prompt from a meeting transcript")
+    p.add_argument("meeting")
+    p.add_argument("--output-dir", default=str(DEFAULT_DIR))
+    p.add_argument("--target", choices=["claude", "claude-code", "codex", "chatgpt"], default="claude")
+    p.set_defaults(func=cmd_export_ai_prompt)
+
+    p = sub.add_parser("gui", help="Launch modern Tk desktop GUI")
+    p.add_argument("--output-dir", default=str(DEFAULT_DIR))
+    p.add_argument("--mini", action="store_true", help="Launch compact always-on-top corner controller")
     p.set_defaults(func=cmd_gui)
 
     return parser

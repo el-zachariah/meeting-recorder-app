@@ -2,6 +2,29 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.3.0 - 2026-06-04
+
+### Added
+
+- Modern dark recorder-first GUI with large record/stop control, elapsed timer, privacy badge, and waveform-style activity indicator.
+- Compact `meeting-recorder gui --mini` always-on-top corner controller.
+- Stop-time meeting naming flow and richer metadata: start/end time, duration, network/provider/model audit fields, and uploaded-artifacts list.
+- Obsidian vault export via `meeting-recorder export-obsidian`, with frontmatter, transcript/summary content, and local file links.
+- Claude/Codex-ready prompt export via `meeting-recorder export-ai-prompt` without reading account credentials.
+- Tests for Obsidian export, AI prompt export, modern GUI helper models, metadata, and new CLI commands.
+
+### Changed
+
+- GUI now emphasizes daily-use recording workflow first, with setup/capture/export details still available.
+- Meeting folders can be renamed around the stop/end time to match how users remember meetings.
+- Privacy documentation now explicitly distinguishes local prompt export from cloud/API account integration.
+
+### Privacy
+
+- The app still uploads nothing by default.
+- Claude Code/Codex accounts are not scraped or automated; prompt export is a local file workflow.
+- Obsidian export links media by default instead of copying recordings into potentially synced vaults.
+
 ## 0.2.0 - 2026-06-04
 
 ### Added

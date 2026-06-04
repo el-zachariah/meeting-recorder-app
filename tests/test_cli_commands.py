@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from meeting_recorder.cli import main
+from meeting_recorder.cli import build_parser, main
 from meeting_recorder.organizer import organize_recording
 from meeting_recorder.status import CheckItem, EnvironmentReport
 
@@ -56,6 +56,40 @@ def test_open_command_opens_summary(monkeypatch, tmp_path, capsys):
     assert code == 0
     assert opened == [meeting.summary_path]
     assert str(meeting.summary_path) in capsys.readouterr().out
+
+
+def test_export_obsidian_command_writes_note(tmp_path, capsys):
+    meeting = make_meeting(tmp_path)
+    meeting.transcript_path.write_text("# Transcript\nhello", encoding="utf-8")
+    meeting.summary_path.write_text("# Summary\nhello", encoding="utf-8")
+    vault = tmp_path / "Vault"
+
+    code = main(["export-obsidian", meeting.path.name, "--output-dir", str(tmp_path / "Meetings"), "--vault", str(vault)])
+
+    assert code == 0
+    note_path = capsys.readouterr().out.strip()
+    assert note_path.endswith(".md")
+    assert "Team Sync" in (vault / "Meetings").glob("*.md").__next__().read_text(encoding="utf-8")
+
+
+def test_export_ai_prompt_command_writes_codex_prompt(tmp_path, capsys):
+    meeting = make_meeting(tmp_path)
+    meeting.transcript_path.write_text("# Transcript\nhello", encoding="utf-8")
+
+    code = main(["export-ai-prompt", meeting.path.name, "--output-dir", str(tmp_path / "Meetings"), "--target", "codex"])
+
+    assert code == 0
+    prompt_path = meeting.path / "prompt-for-codex.md"
+    assert str(prompt_path) in capsys.readouterr().out
+    assert "Codex" in prompt_path.read_text(encoding="utf-8")
+
+
+def test_gui_parser_accepts_mini():
+    args = build_parser().parse_args(["gui", "--mini", "--output-dir", "/tmp/meetings"])
+
+    assert args.command == "gui"
+    assert args.mini is True
+    assert args.output_dir == "/tmp/meetings"
 
 
 def test_record_start_failure_json(monkeypatch, tmp_path, capsys):
