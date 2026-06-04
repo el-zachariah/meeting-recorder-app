@@ -102,7 +102,7 @@ def test_exclusion_rules_cover_private_and_generated_paths(tmp_path):
         root / "src" / "pkg.egg-info" / "PKG-INFO",
         root / "src" / "meeting_recorder" / "__pycache__" / "cli.cpython-311.pyc",
         root / "Meetings" / "private" / "recording.mkv",
-        root / "docs" / "plans" / "internal.md",
+        root / "docs" / "plans" / "private-plan.md",
     ]
     for path in paths:
         path.parent.mkdir(parents=True, exist_ok=True)
