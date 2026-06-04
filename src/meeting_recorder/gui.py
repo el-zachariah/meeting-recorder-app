@@ -111,7 +111,10 @@ def stop_title_default(current_title: str) -> str:
 
 class WaveformCanvas(tk.Canvas):
     def __init__(self, master: tk.Widget, **kwargs):
-        super().__init__(master, height=96, bg=PANEL, highlightthickness=0, **kwargs)
+        kwargs.setdefault("height", 96)
+        kwargs.setdefault("bg", PANEL)
+        kwargs.setdefault("highlightthickness", 0)
+        super().__init__(master, **kwargs)
 
     def draw_levels(self, levels: list[float], recording: bool = False) -> None:
         self.delete("all")

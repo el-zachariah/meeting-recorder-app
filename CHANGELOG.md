@@ -2,6 +2,19 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.4.1 - 2026-06-04
+
+### Fixed
+
+- Fixed compact GUI startup crash caused by passing duplicate `height` options into `tkinter.Canvas`.
+- Added a regression test for compact waveform height overrides so this exact startup crash cannot return.
+
+### Release process
+
+- CI now installs `xvfb` and runs GUI startup smoke tests under a virtual display.
+- CI now smoke-tests the installed source package GUI, not just CLI commands and local unit tests.
+- Release workflow checks now use the package version dynamically instead of stale hardcoded release filenames.
+
 ## 0.4.0 - 2026-06-04
 
 ### Added

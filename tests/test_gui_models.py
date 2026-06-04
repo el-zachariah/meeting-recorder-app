@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from meeting_recorder.gui import format_check_item, format_duration, progress_message, recent_meeting_rows
+from meeting_recorder.gui import WaveformCanvas, format_check_item, format_duration, progress_message, recent_meeting_rows
 from meeting_recorder.gui_models import CaptureSelections, SetupGate, bar_geometry, compact_bar_state, popover_geometry, setup_gate_from_report
 from meeting_recorder.library import MeetingListItem
 from meeting_recorder.status import CheckItem, EnvironmentReport
@@ -95,6 +95,20 @@ def test_compact_bar_state_maps_recording_and_setup():
     recording = compact_bar_state(None, recording=True)
     assert recording.button_text == "Stop"
     assert recording.button_role == "stop"
+
+
+def test_waveform_canvas_allows_compact_height_override(monkeypatch):
+    captured = {}
+
+    def fake_canvas_init(self, master=None, cnf=None, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr("tkinter.Canvas.__init__", fake_canvas_init)
+    widget = WaveformCanvas.__new__(WaveformCanvas)
+
+    WaveformCanvas.__init__(widget, object(), height=1)
+
+    assert captured["height"] == 1
 
 
 def test_compact_geometry_helpers_anchor_top_right():

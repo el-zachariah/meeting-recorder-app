@@ -21,7 +21,13 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg python3-tk x11-utils pulseaudio-utils
+          sudo apt-get install -y ffmpeg python3-tk x11-utils pulseaudio-utils xvfb
+
+      - name: Read package version
+        id: version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
         run: python -m pytest -q
@@ -36,22 +42,42 @@ jobs:
           ./meeting-recorder doctor --json || true
           ./meeting-recorder list --output-dir "$(mktemp -d)"
 
+      - name: GUI startup smoke test under virtual display
+        run: |
+          timeout 8s xvfb-run -a ./meeting-recorder gui || code=$?
+          if [ "${code:-0}" != "124" ]; then
+            echo "Expected GUI to keep running until timeout; got exit code ${code:-0}" >&2
+            exit "${code:-1}"
+          fi
+
       - name: Build release assets
         run: python scripts/build_release_assets.py
 
       - name: Verify checksums
         run: cd dist && sha256sum -c SHA256SUMS
 
+      - name: Smoke-test installed source package GUI under virtual display
+        run: |
+          TMP=$(mktemp -d)
+          mkdir -p "$TMP/home"
+          tar -xzf "dist/meeting-recorder-app-${{ steps.version.outputs.version }}-linux-source-installer.tar.gz" -C "$TMP"
+          PREFIX="$TMP/prefix" HOME="$TMP/home" bash "$TMP/meeting-recorder-app-${{ steps.version.outputs.version }}/install.sh"
+          timeout 8s xvfb-run -a env HOME="$TMP/home" "$TMP/prefix/bin/meeting-recorder" gui || code=$?
+          if [ "${code:-0}" != "124" ]; then
+            echo "Expected installed GUI to keep running until timeout; got exit code ${code:-0}" >&2
+            exit "${code:-1}"
+          fi
+
       - name: Inspect release archive
         run: |
-          tar -tzf dist/meeting-recorder-app-0.2.0-linux-source-installer.tar.gz | sort | tee /tmp/archive-files.txt
-          grep -q 'meeting-recorder-app-0.2.0/install.sh' /tmp/archive-files.txt
-          grep -q 'meeting-recorder-app-0.2.0/uninstall.sh' /tmp/archive-files.txt
-          grep -q 'meeting-recorder-app-0.2.0/meeting-recorder.desktop' /tmp/archive-files.txt
+          tar -tzf "dist/meeting-recorder-app-${{ steps.version.outputs.version }}-linux-source-installer.tar.gz" | sort | tee /tmp/archive-files.txt
+          grep -q "meeting-recorder-app-${{ steps.version.outputs.version }}/install.sh" /tmp/archive-files.txt
+          grep -q "meeting-recorder-app-${{ steps.version.outputs.version }}/uninstall.sh" /tmp/archive-files.txt
+          grep -q "meeting-recorder-app-${{ steps.version.outputs.version }}/meeting-recorder.desktop" /tmp/archive-files.txt
 
       - name: Inspect Debian package when built
         run: |
-          if [ -f dist/meeting-recorder-app_0.2.0_all.deb ]; then
-            dpkg-deb --info dist/meeting-recorder-app_0.2.0_all.deb
-            dpkg-deb --contents dist/meeting-recorder-app_0.2.0_all.deb | grep '/usr/bin/meeting-recorder'
+          if [ -f "dist/meeting-recorder-app_${{ steps.version.outputs.version }}_all.deb" ]; then
+            dpkg-deb --info "dist/meeting-recorder-app_${{ steps.version.outputs.version }}_all.deb"
+            dpkg-deb --contents "dist/meeting-recorder-app_${{ steps.version.outputs.version }}_all.deb" | grep '/usr/bin/meeting-recorder'
           fi
