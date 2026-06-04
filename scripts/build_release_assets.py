@@ -109,6 +109,8 @@ def copy_source_tree(root: Path, target: Path) -> None:
 
 def normalize_tree_permissions(root: Path) -> None:
     """Make packaged application files readable/executable for normal users."""
+    if root.exists():
+        root.chmod(0o755)
     for path in root.rglob("*"):
         if path.is_dir():
             path.chmod(0o755)
@@ -229,6 +231,7 @@ exec python3 -m meeting_recorder.cli "$@"
         control_dir.mkdir(parents=True, exist_ok=True)
         installed_size = max(1, sum(p.stat().st_size for p in package_root.rglob("*") if p.is_file()) // 1024)
         (control_dir / "control").write_text(f"""Package: {PACKAGE_NAME}\nVersion: {version}\nSection: utils\nPriority: optional\nArchitecture: all\nDepends: python3 (>= 3.10), python3-tk, ffmpeg\nInstalled-Size: {installed_size}\nMaintainer: Meeting Recorder Maintainers <noreply@example.invalid>\nDescription: Local-first Linux meeting recorder\n Records screen, audio, transcripts, and summaries into private local meeting folders.\n""", encoding="utf-8")
+        normalize_tree_permissions(package_root)
         env = os.environ.copy()
         env.setdefault("SOURCE_DATE_EPOCH", str(epoch))
         subprocess.run(["dpkg-deb", "--build", "--root-owner-group", str(package_root), str(asset)], check=True, env=env)
