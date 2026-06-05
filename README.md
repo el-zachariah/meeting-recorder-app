@@ -129,33 +129,34 @@ By default recordings are saved under `~/Meetings/YYYY-MM-DD_HH-MM-SS_title/` wi
 - `summary.md` when summary generation runs
 
 
-## Modern desktop workflow
+## System-tray dropdown desktop workflow
 
-The v0.7.0 GUI is a modern Electron/WebView-style recorder panel matching the approved release direction in `docs/design/v0.7.0/approved-ui-direction.png`. `meeting-recorder gui` opens the polished recorder surface in Electron when available, otherwise in a Chromium app window. The frontend is HTML/CSS with a small local Python JSON bridge for state/actions, while the existing Python recorder backend remains the recording path:
+`meeting-recorder gui` is a native system-tray app. It keeps the root window hidden, adds a real tray/status-area icon, and opens the recorder dropdown when you click the tray/default action. The dropdown is the operational surface:
 
-- tray/status-bar visual treatment, glassmorphism recorder popover, waveform, and save/transcribe panel from the approved v0.7.0 direction
-- visible Pause, Stop, Resume, and Save & Transcribe controls
-- persisted default save location and capture preferences (`~/.config/meeting-recorder/settings.json` unless `XDG_CONFIG_HOME` is set)
-- local bridge endpoints for UI state/actions; no cloud service is required for the UI
+- visible Record, Pause, Resume, Stop, and Save controls
+- meeting title and default save location controls
+- capture toggles for screen video, system audio, and microphone
+- post-recording transcription and summary toggles
+- persisted default save location, transcriber model, capture preferences, and post-processing preferences in `~/.config/meeting-recorder/settings.json` unless `XDG_CONFIG_HOME` is set
 
 ```bash
 meeting-recorder gui
 ```
 
-An Electron or Chromium-compatible browser runtime is required for the modern GUI. For source checkout/user-local installs, install one first:
+The runtime GUI requires the native tray/Tk dependencies. On Debian/Ubuntu-style systems:
 
 ```bash
-sudo apt install chromium
+sudo apt install python3-tk python3-pystray python3-pil
 meeting-recorder gui
 ```
 
-For installed artifact release smoke/evidence, render the dropdown surface to a PNG without publishing anything:
+The approved modern HTML/CSS renderer is retained only for release/design evidence until the modern look is rebuilt **inside** the tray/dropdown contract. It must not replace the native system-tray entrypoint:
 
 ```bash
 meeting-recorder gui-screenshot --output meeting-recorder-gui.png
 ```
 
-`meeting-recorder gui-screenshot --output <png>` uses the same approved HTML/CSS and a headless Chromium-compatible renderer. It no longer writes a fallback evidence card; if no renderer is available, the command fails so release evidence stays honest.
+`meeting-recorder gui-screenshot --output <png>` uses a headless Chromium-compatible renderer for visual evidence. If no renderer is available, the command fails so release evidence stays honest.
 
 Pause/resume is implemented as a best-effort Linux process pause (`SIGSTOP`/`SIGCONT`) of the local ffmpeg recorder. Saved metadata includes pause intervals and active duration so recordings remain honest about paused time.
 

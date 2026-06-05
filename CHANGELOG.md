@@ -2,6 +2,19 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.7.2 - 2026-06-05
+
+### Fixed
+
+- Restored the core product shape: `meeting-recorder gui` launches the native system-tray app with hidden root window and tray-opened dropdown, not a standalone Electron/Chromium app window.
+- Added regression tests that fail if the GUI entrypoint bypasses `SystemTrayDropdownGUI` or silently falls back when tray dependencies are missing.
+- Reinstated Debian runtime dependencies for the tray/Tk GUI path (`python3-tk`, `python3-pystray`, `python3-pil`).
+
+### Changed
+
+- Documented the modern HTML/CSS renderer as screenshot/design evidence only until the modern visual treatment is rebuilt inside the tray/dropdown contract.
+- Updated CLI help and package description around the native system-tray workflow.
+
 ## 0.7.1 - 2026-06-05
 
 ### Fixed

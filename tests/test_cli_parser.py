@@ -33,7 +33,10 @@ def test_gui_parser_is_tray_dropdown_only():
     args = parser.parse_args(["gui"])
     assert args.command == "gui"
     assert not hasattr(args, "full")
-    assert "legacy full dashboard" not in parser.format_help()
+    help_text = parser.format_help()
+    assert "legacy full dashboard" not in help_text
+    assert "system tray" in help_text.lower()
+    assert "dropdown" in help_text.lower()
 
     try:
         parser.parse_args(["gui", "--full"])

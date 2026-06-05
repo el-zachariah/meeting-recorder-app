@@ -322,7 +322,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", choices=["claude", "claude-code", "codex", "chatgpt"], default="claude")
     p.set_defaults(func=cmd_export_ai_prompt)
 
-    p = sub.add_parser("gui", help="Launch the modern WebView-style recorder UI")
+    p = sub.add_parser("gui", help="Launch the native system tray app; tray action opens the recorder dropdown")
     p.add_argument("--output-dir", default=str(DEFAULT_DIR))
     p.set_defaults(func=cmd_gui)
 

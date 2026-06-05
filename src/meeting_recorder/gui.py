@@ -977,21 +977,23 @@ class SystemTrayDropdownGUI(CompactDropdownGUI):
 
 
 def main(default_dir: Path) -> None:
-    """Launch the modern WebView/Electron-style GUI.
+    """Launch the real system-tray dropdown GUI.
 
-    v0.7.0 deliberately stops using the Tk/Ttk tray dropdown as the user-facing
-    surface. The legacy classes above remain only for compatibility tests and as
-    a reference for the existing recorder workflow; CLI startup now opens the
-    approved HTML/CSS UI in Electron when available or a Chromium app window.
+    The core product shape is a native tray icon with the main/root window
+    hidden. The tray/default action opens the recorder dropdown. Do not replace
+    this entrypoint with a standalone WebView/app window; modern visual work must
+    build on the tray/dropdown contract instead of bypassing it.
     """
 
-    from .modern_ui import launch_modern_gui
-
+    root = tk.Tk()
+    root.withdraw()
     try:
-        raise SystemExit(launch_modern_gui(default_dir))
-    except RuntimeError as exc:
+        SystemTrayDropdownGUI(root, default_dir)
+    except TrayBackendUnavailable as exc:
+        root.destroy()
         print(str(exc), file=sys.stderr)
         raise SystemExit(2) from exc
+    root.mainloop()
 
 
 def capture_gui_evidence(default_dir: Path, output_path: Path) -> Path:
