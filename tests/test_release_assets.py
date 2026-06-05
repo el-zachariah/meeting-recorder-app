@@ -90,7 +90,7 @@ def test_debian_package_contains_launcher_when_dpkg_deb_available(tmp_path):
     assert "drwxrwxr-x root/root" not in contents
     info = subprocess.check_output(["dpkg-deb", "--info", str(deb)], text=True)
     assert f"Version: {version}" in info
-    assert "Depends: python3 (>= 3.10), python3-tk, ffmpeg" in info
+    assert "Depends: python3 (>= 3.10), python3-tk, python3-pystray, python3-pil, ffmpeg" in info
 
 
 def test_exclusion_rules_cover_private_and_generated_paths(tmp_path):

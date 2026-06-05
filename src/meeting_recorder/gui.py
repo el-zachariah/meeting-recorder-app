@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import os
+import sys
 import tempfile
 import threading
 import time
@@ -21,6 +22,7 @@ from .recorder import RecorderProcess, start_recording, stop_recording
 from .status import CheckItem, build_environment_report
 from .summarizer import summarize_transcript
 from .transcription import transcribe
+from .tray import TrayBackendUnavailable, create_tray_icon
 
 BG = "#08090a"
 PANEL = "#0f1011"
@@ -604,18 +606,11 @@ class MeetingRecorderGUI:
 
 
 class CompactDropdownGUI(MeetingRecorderGUI):
-    """Compact notification-bar-style recorder with dropdown controls.
-
-    This intentionally stays dependency-free (Tk only) because Linux native tray APIs are fragmented.
-    It gives the user the requested top-corner/dropdown workflow as the only desktop surface.
-    """
+    """Hidden Tk controller whose visible surface is a dropdown popover."""
 
     def __init__(self, root: tk.Tk, default_dir: Path):
         super().__init__(root, default_dir, mini=True)
-        self.root.overrideredirect(True)
-        self.root.geometry(bar_geometry(self.root.winfo_screenwidth(), self.root.winfo_screenheight()))
         self.popover: tk.Toplevel | None = None
-        self.root.bind("<Button-1>", lambda _event: self.toggle_popover())
 
     def _build_mini_layout(self) -> None:
         self.root.configure(bg=BG)
@@ -790,7 +785,37 @@ class CompactDropdownGUI(MeetingRecorderGUI):
             self.render_popover()
 
 
+class SystemTrayDropdownGUI(CompactDropdownGUI):
+    """Real system-tray GUI: tray icon only until the user opens the dropdown."""
+
+    def __init__(self, root: tk.Tk, default_dir: Path):
+        super().__init__(root, default_dir)
+        self.root.withdraw()
+        self.root.protocol("WM_DELETE_WINDOW", self.shutdown)
+        self.tray_icon = create_tray_icon(self)
+        self.tray_icon.run_detached()
+
+    def show_tray_dropdown(self) -> None:
+        self.render_popover()
+        if self.popover:
+            self.popover.lift()
+            self.popover.focus_force()
+
+    def shutdown(self) -> None:
+        try:
+            if hasattr(self, "tray_icon"):
+                self.tray_icon.stop()
+        finally:
+            self.root.destroy()
+
+
 def main(default_dir: Path) -> None:
     root = tk.Tk()
-    CompactDropdownGUI(root, default_dir)
+    root.withdraw()
+    try:
+        SystemTrayDropdownGUI(root, default_dir)
+    except TrayBackendUnavailable as exc:
+        root.destroy()
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2) from exc
     root.mainloop()

@@ -131,7 +131,7 @@ By default recordings are saved under `~/Meetings/YYYY-MM-DD_HH-MM-SS_title/` wi
 
 ## Tray/dropdown desktop workflow
 
-The v0.5.0 GUI is tray-style only: `meeting-recorder gui` launches a compact, always-on-top recorder bar near the top-right of the screen. Click the bar to open the dropdown control panel. The dropdown contains the full operational surface for meetings:
+The GUI is a real system-tray workflow: `meeting-recorder gui` adds a Meeting Recorder logo to your desktop environment's tray/status area and keeps the main Tk window hidden. Click the tray icon/default tray action to open the dropdown control panel. The dropdown contains the full operational surface for meetings:
 
 - all setup indicators from the environment doctor, including ffmpeg, display/session, screen size, audio sources, tkinter, local transcription, output folder, and privacy mode
 - system audio capture status, with a clear warning if meeting/app sound will not be recorded
@@ -144,7 +144,14 @@ The v0.5.0 GUI is tray-style only: `meeting-recorder gui` launches a compact, al
 meeting-recorder gui
 ```
 
-Linux native tray APIs vary by desktop environment, so v0.5.0 keeps the dependency-free top-corner dropdown as the only desktop workflow instead of maintaining a separate full dashboard window.
+Native tray support is required. On Debian/Ubuntu installs, the `.deb` package pulls this in automatically. For source checkout/user-local installs, install the tray backend first:
+
+```bash
+sudo apt install python3-pystray python3-pil python3-tk
+meeting-recorder gui
+```
+
+If your desktop environment hides tray/status icons, enable its AppIndicator/system-tray extension. The app intentionally does **not** fall back to a floating top-right corner bar, because that is not the requested product shape.
 
 ## Obsidian export
 
@@ -245,7 +252,7 @@ Install one of the supported local transcription engines. The fallback transcrip
 User-local installer:
 
 ```bash
-~/.local/opt/meeting-recorder-app-0.5.0/uninstall.sh
+~/.local/opt/meeting-recorder-app-0.5.1/uninstall.sh
 ```
 
 Debian/Ubuntu package:

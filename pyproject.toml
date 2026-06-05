@@ -1,12 +1,12 @@
 [project]
 name = "meeting-recorder-app"
-version = "0.5.0"
-description = "Privacy-first local Linux meeting recorder with audio-first system capture, compact dropdown UI, Obsidian export, local transcription fallback, and summaries"
+version = "0.5.1"
+description = "Privacy-first local Linux meeting recorder with audio-first system capture, native system-tray dropdown UI, Obsidian export, local transcription fallback, and summaries"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "Meeting Recorder Maintainers"}]
-dependencies = []
+dependencies = ["pystray>=0.19", "Pillow>=9"]
 
 [project.scripts]
 meeting-recorder = "meeting_recorder.cli:main"

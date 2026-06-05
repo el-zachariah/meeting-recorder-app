@@ -2,6 +2,20 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.5.1 - 2026-06-05
+
+### Fixed
+
+- `meeting-recorder gui` now requires and uses a real native system-tray icon instead of drawing an always-on-top top-right corner bar.
+- Clicking the tray icon/default tray action opens the Meeting Recorder dropdown control panel; the main Tk root stays hidden.
+- Missing tray dependencies now produce an actionable startup error instead of silently falling back to the wrong UI shape.
+
+### Release process
+
+- Debian packages now depend on `python3-pystray` and `python3-pil` so the installed app has the native tray backend it needs.
+- CI installs the tray dependencies before running GUI startup smoke tests.
+- Added tray-backend tests so future releases distinguish a real tray icon from a floating corner window.
+
 ## 0.5.0 - 2026-06-04
 
 ### Changed
