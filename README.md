@@ -9,13 +9,11 @@ Meeting Recorder is designed for people who want meeting artifacts to stay on th
 From the source installer release asset:
 
 ```bash
-tar -xzf meeting-recorder-app-0.4.1-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.4.1
+tar -xzf meeting-recorder-app-0.5.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.5.0
 ./install.sh
 ~/.local/bin/meeting-recorder doctor
 ~/.local/bin/meeting-recorder gui
-# Optional legacy full dashboard:
-~/.local/bin/meeting-recorder gui --full
 ```
 
 Record from the CLI:
@@ -38,14 +36,14 @@ meeting-recorder open <meeting-id> --target summary
 ### Option 1: user-local source installer (recommended for most Linux users)
 
 ```bash
-tar -xzf meeting-recorder-app-0.4.1-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.4.1
+tar -xzf meeting-recorder-app-0.5.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.5.0
 ./install.sh
 ```
 
 This installs to:
 
-- app files: `~/.local/opt/meeting-recorder-app-0.4.1`
+- app files: `~/.local/opt/meeting-recorder-app-0.5.0`
 - command: `~/.local/bin/meeting-recorder`
 - desktop launcher: `~/.local/share/applications/meeting-recorder.desktop`
 
@@ -54,7 +52,7 @@ If `~/.local/bin` is not on your PATH, either add it or run `~/.local/bin/meetin
 ### Option 2: Debian/Ubuntu package
 
 ```bash
-sudo apt install ./meeting-recorder-app_0.4.1_all.deb
+sudo apt install ./meeting-recorder-app_0.5.0_all.deb
 meeting-recorder doctor
 meeting-recorder gui
 ```
@@ -131,10 +129,11 @@ By default recordings are saved under `~/Meetings/YYYY-MM-DD_HH-MM-SS_title/` wi
 - `summary.md` when summary generation runs
 
 
-## Modern desktop workflow
+## Tray/dropdown desktop workflow
 
-The v0.4.1 GUI now launches as a compact, always-on-top recorder bar near the top-right of the screen. Click the bar to open the dropdown-style control panel. The panel focuses on what matters for meetings:
+The v0.5.0 GUI is tray-style only: `meeting-recorder gui` launches a compact, always-on-top recorder bar near the top-right of the screen. Click the bar to open the dropdown control panel. The dropdown contains the full operational surface for meetings:
 
+- all setup indicators from the environment doctor, including ffmpeg, display/session, screen size, audio sources, tkinter, local transcription, output folder, and privacy mode
 - system audio capture status, with a clear warning if meeting/app sound will not be recorded
 - microphone status
 - optional screen video checkbox, off by default
@@ -143,10 +142,9 @@ The v0.4.1 GUI now launches as a compact, always-on-top recorder bar near the to
 
 ```bash
 meeting-recorder gui
-meeting-recorder gui --full   # legacy dashboard window
 ```
 
-Linux native tray APIs vary by desktop environment, so v0.4.1 keeps the dependency-free top-corner dropdown as the default instead of depending on fragile tray packages.
+Linux native tray APIs vary by desktop environment, so v0.5.0 keeps the dependency-free top-corner dropdown as the only desktop workflow instead of maintaining a separate full dashboard window.
 
 ## Obsidian export
 
@@ -247,7 +245,7 @@ Install one of the supported local transcription engines. The fallback transcrip
 User-local installer:
 
 ```bash
-~/.local/opt/meeting-recorder-app-0.4.1/uninstall.sh
+~/.local/opt/meeting-recorder-app-0.5.0/uninstall.sh
 ```
 
 Debian/Ubuntu package:

@@ -2,6 +2,14 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.5.0 - 2026-06-04
+
+### Changed
+
+- `meeting-recorder gui` is now tray/dropdown-only: removed the legacy `--full` dashboard escape hatch and hidden mini mode from the CLI.
+- The dropdown now includes the full setup indicator checklist from the environment doctor instead of hiding those indicators in the removed full dashboard.
+- Documentation now describes the tray-style dropdown as the only desktop workflow.
+
 ## 0.4.1 - 2026-06-04
 
 ### Fixed

@@ -84,11 +84,12 @@ def test_export_ai_prompt_command_writes_codex_prompt(tmp_path, capsys):
     assert "Codex" in prompt_path.read_text(encoding="utf-8")
 
 
-def test_gui_parser_accepts_mini():
-    args = build_parser().parse_args(["gui", "--mini", "--output-dir", "/tmp/meetings"])
+def test_gui_parser_is_tray_dropdown_only():
+    args = build_parser().parse_args(["gui", "--output-dir", "/tmp/meetings"])
 
     assert args.command == "gui"
-    assert args.mini is True
+    assert not hasattr(args, "mini")
+    assert not hasattr(args, "full")
     assert args.output_dir == "/tmp/meetings"
 
 

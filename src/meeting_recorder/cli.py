@@ -230,8 +230,7 @@ def cmd_export_ai_prompt(args: argparse.Namespace) -> int:
 
 def cmd_gui(args: argparse.Namespace) -> int:
     from .gui import main as gui_main
-    compact = not bool(getattr(args, "full", False))
-    gui_main(default_dir=Path(args.output_dir), mini=bool(getattr(args, "mini", False)), compact=compact)
+    gui_main(default_dir=Path(args.output_dir))
     return 0
 
 
@@ -315,10 +314,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", choices=["claude", "claude-code", "codex", "chatgpt"], default="claude")
     p.set_defaults(func=cmd_export_ai_prompt)
 
-    p = sub.add_parser("gui", help="Launch compact notification-bar style recorder")
+    p = sub.add_parser("gui", help="Launch the tray-style dropdown recorder")
     p.add_argument("--output-dir", default=str(DEFAULT_DIR))
-    p.add_argument("--full", action="store_true", help="Launch the legacy full dashboard window")
-    p.add_argument("--mini", action="store_true", help=argparse.SUPPRESS)
     p.set_defaults(func=cmd_gui)
 
     return parser

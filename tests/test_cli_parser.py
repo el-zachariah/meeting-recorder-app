@@ -28,11 +28,19 @@ def test_record_parser_accepts_reliability_options():
     assert args.record_without_transcriber is True
 
 
-def test_gui_parser_defaults_to_compact_and_accepts_full():
-    args = build_parser().parse_args(["gui"])
-    assert args.full is False
-    args = build_parser().parse_args(["gui", "--full"])
-    assert args.full is True
+def test_gui_parser_is_tray_dropdown_only():
+    parser = build_parser()
+    args = parser.parse_args(["gui"])
+    assert args.command == "gui"
+    assert not hasattr(args, "full")
+    assert "legacy full dashboard" not in parser.format_help()
+
+    try:
+        parser.parse_args(["gui", "--full"])
+    except SystemExit as exc:
+        assert exc.code != 0
+    else:  # pragma: no cover - argparse should reject the removed escape hatch
+        raise AssertionError("--full should not be accepted because the GUI is tray/dropdown only")
 
 
 def test_library_parsers():

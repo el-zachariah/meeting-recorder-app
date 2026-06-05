@@ -166,6 +166,7 @@ class MeetingRecorderGUI:
         self.status_var = tk.StringVar(value="Checking setup…")
         self.elapsed_var = tk.StringVar(value="00:00")
         self.privacy_var = tk.StringVar(value="LOCAL")
+        self.last_report: EnvironmentReport | None = None
 
         self._build_styles()
         if self.mini:
@@ -351,8 +352,10 @@ class MeetingRecorderGUI:
 
     def refresh_setup_state(self) -> SetupGate | None:
         try:
+            report = build_environment_report(Path(self.dir_var.get()))
+            self.last_report = report
             gate = setup_gate_from_report(
-                build_environment_report(Path(self.dir_var.get())),
+                report,
                 CaptureSelections(
                     include_system_audio=bool(self.system_audio_var.get()),
                     include_mic=bool(self.mic_var.get()),
@@ -604,7 +607,7 @@ class CompactDropdownGUI(MeetingRecorderGUI):
     """Compact notification-bar-style recorder with dropdown controls.
 
     This intentionally stays dependency-free (Tk only) because Linux native tray APIs are fragmented.
-    It gives the user the requested top-corner/dropdown workflow without forcing a full dashboard window.
+    It gives the user the requested top-corner/dropdown workflow as the only desktop surface.
     """
 
     def __init__(self, root: tk.Tk, default_dir: Path):
@@ -692,12 +695,23 @@ class CompactDropdownGUI(MeetingRecorderGUI):
         status_text = gate.message if gate else self.status_var.get()
         color = SUCCESS if gate and gate.status == "ready" else (RECORD if gate and gate.status == "blocked" else WARN)
         tk.Label(parent, text=status_text, bg=PANEL, fg=color, wraplength=390, justify="left", anchor="w").grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        next_row = 3
         if gate and (gate.blocking or gate.warnings):
             issues = gate.blocking + [w for w in gate.warnings if w not in gate.blocking]
-            issue_text = "\n".join(f"• {issue}" for issue in issues[:4])
-            tk.Label(parent, text=issue_text, bg=PANEL, fg=MUTED, wraplength=390, justify="left", anchor="w").grid(row=3, column=0, sticky="ew", pady=(0, 10))
+            issue_text = "\n".join(f"• {issue}" for issue in issues)
+            tk.Label(parent, text=issue_text, bg=PANEL, fg=MUTED, wraplength=390, justify="left", anchor="w").grid(row=next_row, column=0, sticky="ew", pady=(0, 10))
+            next_row += 1
+        if self.last_report and self.last_report.checks:
+            indicators = ttk.Labelframe(parent, text="Indicators", style="Section.TLabelframe", padding=8)
+            indicators.grid(row=next_row, column=0, sticky="ew", pady=(0, 10))
+            indicators.columnconfigure(0, weight=1)
+            for idx, check in enumerate(self.last_report.checks):
+                style = {"pass": "Pass.TLabel", "warn": "Warn.TLabel", "error": "Error.TLabel"}.get(check.status, "Panel.TLabel")
+                ttk.Label(indicators, text=format_check_item(check), style=style, wraplength=370, justify="left").grid(row=idx, column=0, sticky="w", pady=1)
+            next_row += 1
         form = ttk.Frame(parent, style="Panel.TFrame")
-        form.grid(row=4, column=0, sticky="ew")
+        form.grid(row=next_row, column=0, sticky="ew")
+        next_row += 1
         form.columnconfigure(1, weight=1)
         ttk.Label(form, text="Meeting name", style="Panel.TLabel").grid(row=0, column=0, sticky="w", pady=4)
         ttk.Entry(form, textvariable=self.title_var).grid(row=0, column=1, sticky="ew", pady=4)
@@ -707,7 +721,8 @@ class CompactDropdownGUI(MeetingRecorderGUI):
         ttk.Checkbutton(form, text="Transcribe after recording", variable=self.transcribe_var, command=self.render_popover).grid(row=4, column=0, columnspan=2, sticky="w", pady=4)
         ttk.Checkbutton(form, text="Summarize after transcript", variable=self.summary_var, command=self.render_popover).grid(row=5, column=0, columnspan=2, sticky="w", pady=4)
         actions = ttk.Frame(parent, style="Panel.TFrame")
-        actions.grid(row=5, column=0, sticky="ew", pady=(16, 10))
+        actions.grid(row=next_row, column=0, sticky="ew", pady=(16, 10))
+        next_row += 1
         actions.columnconfigure(0, weight=1)
         is_recording = bool(self.recorder and self.recorder.process.poll() is None)
         cta = "Stop & Save Meeting" if is_recording else (gate.suggested_action if gate else "Start Recording")
@@ -718,12 +733,14 @@ class CompactDropdownGUI(MeetingRecorderGUI):
             ttk.Button(actions, text="Uncheck system audio", command=self._record_without_system_audio).grid(row=1, column=0, sticky="ew", pady=(8, 0))
         if gate and gate.suggested_action == "Record without transcript":
             ttk.Button(actions, text="Record without transcript", command=self._record_without_transcript).grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        tk.Label(parent, text="Privacy: no uploads by default. Recordings and transcripts stay on this computer.", bg=PANEL, fg=MUTED, wraplength=390, justify="left", anchor="w").grid(row=6, column=0, sticky="ew", pady=(8, 0))
+        tk.Label(parent, text="Privacy: no uploads by default. Recordings and transcripts stay on this computer.", bg=PANEL, fg=MUTED, wraplength=390, justify="left", anchor="w").grid(row=next_row, column=0, sticky="ew", pady=(8, 0))
+        next_row += 1
         if self.current_meeting:
             transcript = "transcript ready" if self.current_meeting.transcript_path.exists() else "transcript skipped/unavailable"
             summary = "summary ready" if self.current_meeting.summary_path.exists() else "summary skipped/unavailable"
-            tk.Label(parent, text=f"Saved recording ✓\n{transcript}\n{summary}", bg=PANEL, fg=SUCCESS, wraplength=390, justify="left", anchor="w").grid(row=7, column=0, sticky="ew", pady=(12, 0))
-            ttk.Button(parent, text="Open saved meeting folder", command=lambda: self._open_current("folder")).grid(row=8, column=0, sticky="ew", pady=(12, 0))
+            tk.Label(parent, text=f"Saved recording ✓\n{transcript}\n{summary}", bg=PANEL, fg=SUCCESS, wraplength=390, justify="left", anchor="w").grid(row=next_row, column=0, sticky="ew", pady=(12, 0))
+            next_row += 1
+            ttk.Button(parent, text="Open saved meeting folder", command=lambda: self._open_current("folder")).grid(row=next_row, column=0, sticky="ew", pady=(12, 0))
 
     def _primary_action(self) -> None:
         gate = self.refresh_setup_state()
@@ -773,10 +790,7 @@ class CompactDropdownGUI(MeetingRecorderGUI):
             self.render_popover()
 
 
-def main(default_dir: Path, mini: bool = False, compact: bool = True) -> None:
+def main(default_dir: Path) -> None:
     root = tk.Tk()
-    if compact and not mini:
-        CompactDropdownGUI(root, default_dir)
-    else:
-        MeetingRecorderGUI(root, default_dir, mini=mini)
+    CompactDropdownGUI(root, default_dir)
     root.mainloop()
