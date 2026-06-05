@@ -160,22 +160,27 @@ def _is_electron(executable: str) -> bool:
 def capture_modern_gui_screenshot(default_dir: Path, output_path: Path) -> Path:
     output_path = Path(output_path).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    # Some sandboxed Chromium builds (notably snap Chromium) cannot read files
-    # from /tmp even though they exit successfully and save an ERR_FILE_NOT_FOUND
-    # screenshot. Put the evidence HTML next to the requested output so the
-    # renderer can actually read it under CI and local release gates.
-    with tempfile.TemporaryDirectory(prefix="meeting-recorder-ui-", dir=str(output_path.parent)) as td:
+    # Some sandboxed Chromium builds (notably snap Chromium) cannot read/write
+    # arbitrary /tmp files even though they may exit without producing useful
+    # evidence. Render from/to the user's cache directory, then copy the PNG to
+    # the requested output path so installed-package smoke tests can request
+    # /tmp outputs without producing ERR_FILE_NOT_FOUND screenshots.
+    cache_dir = Path(os.environ.get("MEETING_RECORDER_RENDER_DIR", Path.home() / "meeting-recorder-render-cache"))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="meeting-recorder-ui-", dir=str(cache_dir)) as td:
         # Release evidence must match the approved visual direction exactly, not
         # drift with a developer's persisted settings/default output folder.
         html = write_modern_ui_html(Path(td) / "meeting-recorder-modern.html", ModernGuiState())
+        browser_output = Path(td) / "meeting-recorder-modern.png"
         last_error: Exception | None = None
         for browser in _browser_candidates():
             if _is_electron(browser):
                 continue
-            cmd = [browser, "--headless=new", "--disable-gpu", "--no-sandbox", f"--window-size={APP_WIDTH},{APP_HEIGHT}", f"--screenshot={output_path}", html.as_uri()]
+            cmd = [browser, "--headless=new", "--disable-gpu", "--no-sandbox", f"--window-size={APP_WIDTH},{APP_HEIGHT}", f"--screenshot={browser_output}", html.as_uri()]
             try:
                 subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60)
-                if output_path.exists() and output_path.stat().st_size > 0:
+                if browser_output.exists() and browser_output.stat().st_size > 0:
+                    shutil.copyfile(browser_output, output_path)
                     return output_path
             except Exception as exc:  # pragma: no cover - exercised in release smoke
                 last_error = exc
@@ -348,7 +353,7 @@ class RecorderBridgeBackend:
 
 def launch_modern_gui(default_dir: Path) -> int:
     bridge = ModernBridgeService(default_dir, backend=RecorderBridgeBackend(default_dir)).start()
-    cache_dir = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "meeting-recorder"
+    cache_dir = Path(os.environ.get("MEETING_RECORDER_RENDER_DIR", Path.home() / "meeting-recorder-render-cache"))
     cache_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="meeting-recorder-ui-", dir=str(cache_dir)) as td:
         html = write_modern_ui_html(Path(td) / "meeting-recorder-modern.html", default_state(default_dir), bridge_url=bridge.url)
