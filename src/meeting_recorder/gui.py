@@ -864,6 +864,11 @@ def capture_gui_evidence(default_dir: Path, output_path: Path) -> Path:
 
         app = CompactDropdownGUI(root, default_dir)
         app.render_popover()
+        if app.popover and app.popover.winfo_exists():
+            # The normal dropdown positions itself near the screen edge. For
+            # release evidence under Xvfb, move it fully on-screen before
+            # grabbing pixels so the screenshot is not cropped by display bounds.
+            app.popover.geometry("+20+20")
         root.update_idletasks()
         root.update()
         target = app.popover if app.popover and app.popover.winfo_exists() else root
