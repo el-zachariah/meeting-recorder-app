@@ -19,6 +19,7 @@ class RecorderProcess:
     command: list[str]
     stderr_log: Path | None = None
     _stderr_handle: IO[str] | None = None
+    paused: bool = False
 
 
 @dataclass(frozen=True)
@@ -294,6 +295,8 @@ def start_recording(output_file: Path, readiness_timeout: float = 0.75, stderr_l
 
 def stop_recording(recorder: RecorderProcess, timeout: int = 10) -> None:
     proc = recorder.process
+    if recorder.paused and proc.poll() is None:
+        resume_recording(recorder)
     if proc.poll() is None:
         try:
             if proc.stdin:
@@ -311,3 +314,24 @@ def stop_recording(recorder: RecorderProcess, timeout: int = 10) -> None:
         recorder._stderr_handle.flush()
         recorder._stderr_handle.close()
     time.sleep(0.2)
+
+
+def pause_recording(recorder: RecorderProcess) -> None:
+    """Best-effort pause for the ffmpeg process.
+
+    This uses SIGSTOP, so no new samples are encoded while paused. It is Linux
+    process-control based rather than a muxer-level segment merge; callers should
+    record pause intervals in metadata so the saved duration is honest.
+    """
+
+    proc = recorder.process
+    if proc.poll() is None and not recorder.paused:
+        proc.send_signal(signal.SIGSTOP)
+        recorder.paused = True
+
+
+def resume_recording(recorder: RecorderProcess) -> None:
+    proc = recorder.process
+    if proc.poll() is None and recorder.paused:
+        proc.send_signal(signal.SIGCONT)
+        recorder.paused = False

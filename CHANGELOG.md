@@ -2,6 +2,22 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.6.0 - 2026-06-05
+
+### Added
+
+- Persistent GUI settings stored in XDG config, including default save location, transcriber model, capture defaults, Obsidian defaults, and post-recording workflow toggles.
+- Dropdown now exposes visible Record, Pause, Resume, and Stop controls instead of relying on a single ambiguous toggle.
+- Meeting name defaults to a timestamp-based title (`Meeting YYYY-MM-DD HH:MM`) for clearer saved folder names.
+- Settings panel for default save location and transcriber settings.
+- Best-effort pause/resume support using Linux process pause/resume for ffmpeg, with pause intervals and paused seconds written to meeting metadata.
+- COSMIC-aware doctor/tray diagnostics that identify Pop!_OS COSMIC and clearly describe generic AppIndicator/Tk support without claiming native COSMIC integration.
+
+### Release process
+
+- Added tests for persistent settings, pause/resume process control, tray menu actions, and COSMIC diagnostics.
+- Updated release docs/evidence targets to v0.6.0.
+
 ## 0.5.3 - 2026-06-05
 
 ### Fixed

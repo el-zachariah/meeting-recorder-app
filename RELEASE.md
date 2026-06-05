@@ -6,8 +6,8 @@ This project ships Linux release assets for Meeting Recorder. Do not publish fro
 
 The release builder creates:
 
-- `dist/meeting-recorder-app-0.5.3-linux-source-installer.tar.gz`
-- `dist/meeting-recorder-app_0.5.3_all.deb` when `dpkg-deb` is installed
+- `dist/meeting-recorder-app-0.6.0-linux-source-installer.tar.gz`
+- `dist/meeting-recorder-app_0.6.0_all.deb` when `dpkg-deb` is installed
 - `dist/SHA256SUMS`
 
 The source installer contains app source, docs, tests, `install.sh`, `uninstall.sh`, `meeting-recorder.desktop`, and the launcher wrapper. It excludes git metadata, caches, virtual environments, build output, previous release artifacts, egg-info, bytecode, and private meeting data.
@@ -30,7 +30,7 @@ in `docs/release-evidence/` and attach a copy or the generated bundle to the
 release notes after approval:
 
 ```bash
-cp docs/release-evidence/v0.5.3-signoff.md /tmp/meeting-recorder-v0.5.3-signoff.md
+cp docs/release-evidence/v0.6.0-signoff.md /tmp/meeting-recorder-v0.6.0-signoff.md
 ```
 
 Tarball install smoke test:

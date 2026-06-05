@@ -18,7 +18,8 @@ from .gui_models import CaptureSelections, SetupGate, bar_geometry, compact_bar_
 from .library import MeetingListItem, open_path, scan_meetings
 from .obsidian import export_meeting_to_obsidian
 from .organizer import MeetingFolder, organize_recording, rename_meeting_by_end_time, update_meeting_metadata
-from .recorder import RecorderProcess, start_recording, stop_recording
+from .recorder import RecorderProcess, pause_recording, resume_recording, start_recording, stop_recording
+from .settings import AppSettings, load_settings, save_settings
 from .status import CheckItem, build_environment_report
 from .summarizer import summarize_transcript
 from .transcription import transcribe
@@ -104,11 +105,16 @@ def window_geometry_for_mini(screen_width: int, screen_height: int, width: int =
     return f"{width}x{height}+{x}+{y}"
 
 
+def timestamp_meeting_title(now: datetime | None = None) -> str:
+    now = now or datetime.now()
+    return f"Meeting {now.strftime('%Y-%m-%d %H:%M')}"
+
+
 def stop_title_default(current_title: str) -> str:
     title = current_title.strip()
     if title:
         return title
-    return f"Meeting {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    return timestamp_meeting_title()
 
 
 class WaveformCanvas(tk.Canvas):
@@ -157,27 +163,35 @@ class MeetingRecorderGUI:
         self.root.title("Meeting Recorder")
         self.root.configure(bg=BG)
         self.root.minsize(360 if mini else 980, 170 if mini else 720)
-        self.default_dir = Path(default_dir).expanduser()
+        self.settings = load_settings()
+        cli_default = Path.home() / "Meetings"
+        requested_dir = Path(default_dir).expanduser()
+        self.default_dir = Path(self.settings.default_save_location).expanduser() if requested_dir == cli_default else requested_dir
         self.recorder: RecorderProcess | None = None
         self.raw_file: Path | None = None
         self.recording_started_at: float | None = None
         self.recording_started_wall: datetime | None = None
+        self.paused_started_at: float | None = None
+        self.paused_started_wall: datetime | None = None
+        self.pause_intervals: list[dict[str, str | int | None]] = []
+        self.paused_total_seconds = 0
         self.current_meeting: MeetingFolder | None = None
         self.busy = False
         self.monitor = AudioLevelMonitor(bars=36 if mini else 52)
 
-        self.title_var = tk.StringVar(value="meeting")
+        self.title_var = tk.StringVar(value=timestamp_meeting_title())
         self.dir_var = tk.StringVar(value=str(self.default_dir))
-        self.fps_var = tk.IntVar(value=15)
-        self.size_var = tk.StringVar(value="")
-        self.video_var = tk.BooleanVar(value=False)
-        self.system_audio_var = tk.BooleanVar(value=True)
-        self.mic_var = tk.BooleanVar(value=True)
-        self.transcribe_var = tk.BooleanVar(value=True)
-        self.summary_var = tk.BooleanVar(value=True)
-        self.stop_time_name_var = tk.BooleanVar(value=True)
-        self.obsidian_vault_var = tk.StringVar(value="")
-        self.obsidian_folder_var = tk.StringVar(value="Meetings")
+        self.fps_var = tk.IntVar(value=self.settings.fps)
+        self.size_var = tk.StringVar(value=self.settings.size)
+        self.video_var = tk.BooleanVar(value=self.settings.record_video)
+        self.system_audio_var = tk.BooleanVar(value=self.settings.record_system_audio)
+        self.mic_var = tk.BooleanVar(value=self.settings.record_microphone)
+        self.transcribe_var = tk.BooleanVar(value=self.settings.transcribe_after_recording)
+        self.summary_var = tk.BooleanVar(value=self.settings.summarize_after_transcription)
+        self.stop_time_name_var = tk.BooleanVar(value=self.settings.name_saved_folder_by_stop_time)
+        self.transcriber_model_var = tk.StringVar(value=self.settings.transcriber_model)
+        self.obsidian_vault_var = tk.StringVar(value=self.settings.obsidian_vault)
+        self.obsidian_folder_var = tk.StringVar(value=self.settings.obsidian_folder)
         self.status_var = tk.StringVar(value="Checking setup…")
         self.elapsed_var = tk.StringVar(value="00:00")
         self.privacy_var = tk.StringVar(value="LOCAL")
@@ -245,6 +259,7 @@ class MeetingRecorderGUI:
         self.privacy_badge = tk.Label(header, textvariable=self.privacy_var, bg="#11251c", fg=SUCCESS, padx=12, pady=5, font=("TkDefaultFont", 10, "bold"))
         self.privacy_badge.grid(row=0, column=1, sticky="e")
         ttk.Button(header, text="Refresh setup", command=self.refresh_dashboard).grid(row=1, column=1, sticky="e", pady=(4, 0))
+        ttk.Button(header, text="Settings", command=self.show_settings_panel).grid(row=1, column=2, sticky="e", padx=(8, 0), pady=(4, 0))
 
         recorder = self._card(main, 1, 0, padx=(0, 10))
         recorder.columnconfigure(0, weight=1)
@@ -265,10 +280,18 @@ class MeetingRecorderGUI:
             cursor="hand2",
         )
         self.record_button.grid(row=1, column=0, pady=8)
-        ttk.Label(recorder, textvariable=self.elapsed_var, style="Timer.TLabel").grid(row=2, column=0, pady=(0, 8))
+        controls = ttk.Frame(recorder, style="Panel.TFrame")
+        controls.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        controls.columnconfigure(0, weight=1)
+        controls.columnconfigure(1, weight=1)
+        self.pause_button = ttk.Button(controls, text="Pause", command=self.pause, state="disabled")
+        self.pause_button.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        self.resume_button = ttk.Button(controls, text="Resume", command=self.resume, state="disabled")
+        self.resume_button.grid(row=0, column=1, sticky="ew", padx=(4, 0))
+        ttk.Label(recorder, textvariable=self.elapsed_var, style="Timer.TLabel").grid(row=3, column=0, pady=(0, 8))
         self.waveform = WaveformCanvas(recorder)
-        self.waveform.grid(row=3, column=0, sticky="ew", pady=(8, 10))
-        ttk.Label(recorder, textvariable=self.status_var, style="PanelMuted.TLabel", wraplength=520, justify="center").grid(row=4, column=0, sticky="ew")
+        self.waveform.grid(row=4, column=0, sticky="ew", pady=(8, 10))
+        ttk.Label(recorder, textvariable=self.status_var, style="PanelMuted.TLabel", wraplength=520, justify="center").grid(row=5, column=0, sticky="ew")
 
         options = ttk.Labelframe(main, text="Capture options", style="Section.TLabelframe", padding=12)
         options.grid(row=1, column=1, sticky="nsew", padx=(10, 0))
@@ -365,6 +388,52 @@ class MeetingRecorderGUI:
         if chosen:
             self.obsidian_vault_var.set(chosen)
 
+    def current_settings(self) -> AppSettings:
+        return AppSettings(
+            default_save_location=str(Path(self.dir_var.get()).expanduser()),
+            transcriber_model=self.transcriber_model_var.get().strip() or "base",
+            transcribe_after_recording=bool(self.transcribe_var.get()),
+            summarize_after_transcription=bool(self.summary_var.get()),
+            record_system_audio=bool(self.system_audio_var.get()),
+            record_microphone=bool(self.mic_var.get()),
+            record_video=bool(self.video_var.get()),
+            fps=int(self.fps_var.get() or 15),
+            size=self.size_var.get().strip(),
+            obsidian_vault=self.obsidian_vault_var.get().strip(),
+            obsidian_folder=self.obsidian_folder_var.get().strip() or "Meetings",
+            name_saved_folder_by_stop_time=bool(self.stop_time_name_var.get()),
+        )
+
+    def save_current_settings(self) -> None:
+        self.settings = self.current_settings()
+        path = save_settings(self.settings)
+        self.status_var.set(f"Settings saved: {path}")
+        if not self.mini:
+            self.refresh_dashboard()
+            self.refresh_recent()
+
+    def show_settings_panel(self) -> None:
+        window = tk.Toplevel(self.root)
+        window.title("Meeting Recorder Settings")
+        window.configure(bg=BG)
+        window.geometry("560x420")
+        frame = ttk.Frame(window, padding=16, style="Panel.TFrame")
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(1, weight=1)
+        ttk.Label(frame, text="Settings", style="Panel.TLabel", font=("TkDefaultFont", 18, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
+        ttk.Label(frame, text="Default save location", style="Panel.TLabel").grid(row=1, column=0, sticky="w", pady=5)
+        ttk.Entry(frame, textvariable=self.dir_var).grid(row=1, column=1, sticky="ew", pady=5)
+        ttk.Button(frame, text="Browse…", command=self.browse).grid(row=1, column=2, padx=(6, 0), pady=5)
+        ttk.Label(frame, text="Transcriber model", style="Panel.TLabel").grid(row=2, column=0, sticky="w", pady=5)
+        ttk.Entry(frame, textvariable=self.transcriber_model_var).grid(row=2, column=1, columnspan=2, sticky="ew", pady=5)
+        ttk.Checkbutton(frame, text="Transcribe after recording", variable=self.transcribe_var, command=self.refresh_setup_state).grid(row=3, column=0, columnspan=3, sticky="w", pady=5)
+        ttk.Checkbutton(frame, text="Summarize after transcript", variable=self.summary_var, command=self.refresh_setup_state).grid(row=4, column=0, columnspan=3, sticky="w", pady=5)
+        ttk.Checkbutton(frame, text="System audio by default", variable=self.system_audio_var, command=self.refresh_setup_state).grid(row=5, column=0, columnspan=3, sticky="w", pady=5)
+        ttk.Checkbutton(frame, text="Microphone by default", variable=self.mic_var, command=self.refresh_setup_state).grid(row=6, column=0, columnspan=3, sticky="w", pady=5)
+        ttk.Checkbutton(frame, text="Screen video by default", variable=self.video_var, command=self.refresh_setup_state).grid(row=7, column=0, columnspan=3, sticky="w", pady=5)
+        ttk.Label(frame, text="Settings are stored in XDG config (~/.config/meeting-recorder/settings.json by default).", style="PanelMuted.TLabel", wraplength=500).grid(row=8, column=0, columnspan=3, sticky="w", pady=(12, 8))
+        ttk.Button(frame, text="Save settings", command=lambda: (self.save_current_settings(), window.destroy())).grid(row=9, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+
     def refresh_setup_state(self) -> SetupGate | None:
         try:
             report = build_environment_report(Path(self.dir_var.get()))
@@ -429,8 +498,54 @@ class MeetingRecorderGUI:
     def _update_record_button(self) -> None:
         is_recording = bool(self.recorder and self.recorder.process.poll() is None)
         self.record_button.config(text=recording_button_text(is_recording, self.busy), bg=RECORD if is_recording else "#15171c")
+        self._update_pause_buttons()
+
+    def _update_pause_buttons(self) -> None:
+        if not hasattr(self, "pause_button"):
+            return
+        is_recording = bool(self.recorder and self.recorder.process.poll() is None)
+        is_paused = bool(self.recorder and self.recorder.paused)
+        self.pause_button.config(state="normal" if is_recording and not is_paused and not self.busy else "disabled")
+        self.resume_button.config(state="normal" if is_recording and is_paused and not self.busy else "disabled")
+
+    def pause(self) -> None:
+        if not self.recorder or self.busy or self.recorder.process.poll() is not None or self.recorder.paused:
+            return
+        pause_recording(self.recorder)
+        self.paused_started_at = time.monotonic()
+        self.paused_started_wall = datetime.now()
+        self.monitor.stop()
+        self.status_var.set("Paused. Recording process is suspended locally; resume to continue.")
+        self._update_record_button()
+        if hasattr(self, "render_popover"):
+            self.render_popover()
+
+    def resume(self) -> None:
+        if not self.recorder or self.busy or self.recorder.process.poll() is not None or not self.recorder.paused:
+            return
+        started = self.paused_started_at
+        ended = time.monotonic()
+        pause_seconds = int(ended - started) if started else 0
+        self.paused_total_seconds += pause_seconds
+        self.pause_intervals.append(
+            {
+                "started_at": self.paused_started_wall.isoformat(timespec="seconds") if self.paused_started_wall else None,
+                "ended_at": datetime.now().isoformat(timespec="seconds"),
+                "duration_seconds": pause_seconds,
+            }
+        )
+        self.paused_started_at = None
+        self.paused_started_wall = None
+        resume_recording(self.recorder)
+        self.monitor.start()
+        self.status_var.set(progress_message("recording"))
+        self._update_record_button()
+        self._tick_elapsed()
+        if hasattr(self, "render_popover"):
+            self.render_popover()
 
     def start(self) -> None:
+        self.save_current_settings()
         gate = self.refresh_setup_state()
         if gate and not gate.can_start_selected_config:
             if gate.suggested_action == "Record without system audio":
@@ -470,6 +585,10 @@ class MeetingRecorderGUI:
             return
         self.recording_started_at = time.monotonic()
         self.recording_started_wall = datetime.now()
+        self.paused_started_at = None
+        self.paused_started_wall = None
+        self.pause_intervals = []
+        self.paused_total_seconds = 0
         self.current_meeting = None
         self._set_completion_buttons(None)
         self.status_var.set(progress_message("recording"))
@@ -480,7 +599,10 @@ class MeetingRecorderGUI:
     def _tick_elapsed(self) -> None:
         if self.recording_started_at is None:
             return
-        self.elapsed_var.set(format_duration(time.monotonic() - self.recording_started_at))
+        active_elapsed = time.monotonic() - self.recording_started_at - self.paused_total_seconds
+        if self.paused_started_at is not None:
+            active_elapsed -= time.monotonic() - self.paused_started_at
+        self.elapsed_var.set(format_duration(active_elapsed))
         if self.recorder and self.recorder.process.poll() is None:
             self.root.after(1000, self._tick_elapsed)
 
@@ -493,6 +615,8 @@ class MeetingRecorderGUI:
     def stop(self) -> None:
         if not self.recorder or not self.raw_file:
             return
+        if self.recorder.paused:
+            self.resume()
         title = stop_title_default(self.title_var.get())
         self.title_var.set(title.strip() or stop_title_default(""))
         self.busy = True
@@ -507,7 +631,7 @@ class MeetingRecorderGUI:
     def _stop_worker(self) -> None:
         meeting: MeetingFolder | None = None
         ended = datetime.now()
-        duration = int(time.monotonic() - self.recording_started_at) if self.recording_started_at else None
+        duration = int(time.monotonic() - self.recording_started_at - self.paused_total_seconds) if self.recording_started_at else None
         try:
             self._stage("stopping")
             stop_recording(self.recorder)  # type: ignore[arg-type]
@@ -525,6 +649,9 @@ class MeetingRecorderGUI:
                     "started_at": self.recording_started_wall.isoformat(timespec="seconds") if self.recording_started_wall else None,
                     "ended_at": ended.isoformat(timespec="seconds"),
                     "duration_seconds": duration,
+                    "pause_seconds": self.paused_total_seconds,
+                    "pause_intervals": self.pause_intervals,
+                    "pause_mode": "best-effort SIGSTOP/SIGCONT process pause",
                 },
             )  # type: ignore[arg-type]
             if self.stop_time_name_var.get():
@@ -536,7 +663,7 @@ class MeetingRecorderGUI:
                 pass
             if self.transcribe_var.get():
                 self._stage("transcribing")
-                transcribe(meeting.media_path, meeting.transcript_path)  # type: ignore[arg-type]
+                transcribe(meeting.media_path, meeting.transcript_path, model=self.transcriber_model_var.get().strip() or "base")  # type: ignore[arg-type]
                 if self.summary_var.get():
                     self._stage("summarizing")
                     summarize_transcript(meeting.transcript_path, meeting.summary_path)
@@ -550,6 +677,8 @@ class MeetingRecorderGUI:
     def _finish(self, stage: str, msg: str, meeting: MeetingFolder | None) -> None:
         self.recording_started_at = None
         self.recording_started_wall = None
+        self.paused_started_at = None
+        self.paused_started_wall = None
         self.busy = False
         self.status_var.set(f"{progress_message(stage)} {msg}")
         self.current_meeting = meeting
@@ -723,24 +852,35 @@ class CompactDropdownGUI(MeetingRecorderGUI):
         form.columnconfigure(1, weight=1)
         ttk.Label(form, text="Meeting name", style="Panel.TLabel").grid(row=0, column=0, sticky="w", pady=4)
         ttk.Entry(form, textvariable=self.title_var).grid(row=0, column=1, sticky="ew", pady=4)
-        ttk.Checkbutton(form, text="System audio (meeting/app sound)", variable=self.system_audio_var, command=self.render_popover).grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
-        ttk.Checkbutton(form, text="Microphone", variable=self.mic_var, command=self.render_popover).grid(row=2, column=0, columnspan=2, sticky="w", pady=4)
-        ttk.Checkbutton(form, text="Record screen video (optional)", variable=self.video_var, command=self.render_popover).grid(row=3, column=0, columnspan=2, sticky="w", pady=4)
-        ttk.Checkbutton(form, text="Transcribe after recording", variable=self.transcribe_var, command=self.render_popover).grid(row=4, column=0, columnspan=2, sticky="w", pady=4)
-        ttk.Checkbutton(form, text="Summarize after transcript", variable=self.summary_var, command=self.render_popover).grid(row=5, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Label(form, text="Save location", style="Panel.TLabel").grid(row=1, column=0, sticky="w", pady=4)
+        ttk.Entry(form, textvariable=self.dir_var).grid(row=1, column=1, sticky="ew", pady=4)
+        ttk.Checkbutton(form, text="System audio (meeting/app sound)", variable=self.system_audio_var, command=self.render_popover).grid(row=2, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Checkbutton(form, text="Microphone", variable=self.mic_var, command=self.render_popover).grid(row=3, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Checkbutton(form, text="Record screen video (optional)", variable=self.video_var, command=self.render_popover).grid(row=4, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Checkbutton(form, text="Transcribe after recording", variable=self.transcribe_var, command=self.render_popover).grid(row=5, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Checkbutton(form, text="Summarize after transcript", variable=self.summary_var, command=self.render_popover).grid(row=6, column=0, columnspan=2, sticky="w", pady=4)
         actions = ttk.Frame(parent, style="Panel.TFrame")
         actions.grid(row=next_row, column=0, sticky="ew", pady=(16, 10))
         next_row += 1
         actions.columnconfigure(0, weight=1)
+        actions.columnconfigure(1, weight=1)
+        actions.columnconfigure(2, weight=1)
+        actions.columnconfigure(3, weight=1)
         is_recording = bool(self.recorder and self.recorder.process.poll() is None)
+        is_paused = bool(self.recorder and self.recorder.paused)
+        tk.Button(actions, text="● Record", command=self._primary_action, bg=ACCENT, fg=TEXT, activebackground=ACCENT, relief="flat", bd=0, pady=10, font=("TkDefaultFont", 11, "bold"), cursor="hand2", state="disabled" if is_recording else "normal").grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        ttk.Button(actions, text="Pause", command=self.pause, state="normal" if is_recording and not is_paused and not self.busy else "disabled").grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(actions, text="Resume", command=self.resume, state="normal" if is_recording and is_paused and not self.busy else "disabled").grid(row=0, column=2, sticky="ew", padx=4)
+        tk.Button(actions, text="■ Stop", command=self.toggle_recording, bg=RECORD, fg=TEXT, activebackground=RECORD, relief="flat", bd=0, pady=10, font=("TkDefaultFont", 11, "bold"), cursor="hand2", state="normal" if is_recording else "disabled").grid(row=0, column=3, sticky="ew", padx=(4, 0))
         cta = "Stop & Save Meeting" if is_recording else (gate.suggested_action if gate else "Start Recording")
         bg = RECORD if is_recording else (WARN if gate and not gate.can_start_selected_config else ACCENT)
         command = self._primary_action if not is_recording else self.toggle_recording
-        tk.Button(actions, text=cta, command=command, bg=bg, fg=TEXT, activebackground=bg, relief="flat", bd=0, pady=12, font=("TkDefaultFont", 12, "bold"), cursor="hand2").grid(row=0, column=0, sticky="ew")
+        tk.Button(actions, text=cta, command=command, bg=bg, fg=TEXT, activebackground=bg, relief="flat", bd=0, pady=12, font=("TkDefaultFont", 12, "bold"), cursor="hand2").grid(row=1, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         if gate and gate.suggested_action == "Record without system audio":
-            ttk.Button(actions, text="Uncheck system audio", command=self._record_without_system_audio).grid(row=1, column=0, sticky="ew", pady=(8, 0))
+            ttk.Button(actions, text="Uncheck system audio", command=self._record_without_system_audio).grid(row=2, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         if gate and gate.suggested_action == "Record without transcript":
-            ttk.Button(actions, text="Record without transcript", command=self._record_without_transcript).grid(row=1, column=0, sticky="ew", pady=(8, 0))
+            ttk.Button(actions, text="Record without transcript", command=self._record_without_transcript).grid(row=2, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        ttk.Button(actions, text="Settings…", command=self.show_settings_panel).grid(row=3, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         tk.Label(parent, text="Privacy: no uploads by default. Recordings and transcripts stay on this computer.", bg=PANEL, fg=MUTED, wraplength=390, justify="left", anchor="w").grid(row=next_row, column=0, sticky="ew", pady=(8, 0))
         next_row += 1
         if self.current_meeting:

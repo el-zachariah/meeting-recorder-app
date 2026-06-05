@@ -9,8 +9,8 @@ Meeting Recorder is designed for people who want meeting artifacts to stay on th
 From the source installer release asset:
 
 ```bash
-tar -xzf meeting-recorder-app-0.5.3-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.5.3
+tar -xzf meeting-recorder-app-0.6.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.6.0
 ./install.sh
 ~/.local/bin/meeting-recorder doctor
 ~/.local/bin/meeting-recorder gui
@@ -36,14 +36,14 @@ meeting-recorder open <meeting-id> --target summary
 ### Option 1: user-local source installer (recommended for most Linux users)
 
 ```bash
-tar -xzf meeting-recorder-app-0.5.3-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.5.3
+tar -xzf meeting-recorder-app-0.6.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.6.0
 ./install.sh
 ```
 
 This installs to:
 
-- app files: `~/.local/opt/meeting-recorder-app-0.5.3`
+- app files: `~/.local/opt/meeting-recorder-app-0.6.0`
 - command: `~/.local/bin/meeting-recorder`
 - desktop launcher: `~/.local/share/applications/meeting-recorder.desktop`
 
@@ -52,7 +52,7 @@ If `~/.local/bin` is not on your PATH, either add it or run `~/.local/bin/meetin
 ### Option 2: Debian/Ubuntu package
 
 ```bash
-sudo apt install ./meeting-recorder-app_0.5.3_all.deb
+sudo apt install ./meeting-recorder-app_0.6.0_all.deb
 meeting-recorder doctor
 meeting-recorder gui
 ```
@@ -136,6 +136,9 @@ The GUI is a real system-tray workflow: `meeting-recorder gui` adds a Meeting Re
 - all setup indicators from the environment doctor, including ffmpeg, display/session, screen size, audio sources, tkinter, local transcription, output folder, and privacy mode
 - system audio capture status, with a clear warning if meeting/app sound will not be recorded
 - microphone status
+- visible Record, Pause, Resume, and Stop controls in the dropdown
+- timestamp-based default meeting/folder title such as `Meeting 2026-06-05 14:30`
+- default save location and transcriber model controls in Settings; persisted under XDG config (`~/.config/meeting-recorder/settings.json` unless `XDG_CONFIG_HOME` is set)
 - optional screen video checkbox, off by default
 - local transcriber readiness, with an explicit record-without-transcript action when Whisper is not installed
 - inline stop/save naming instead of a retro pop-up dialog
@@ -157,7 +160,9 @@ For installed artifact release smoke/evidence, render the dropdown surface to a 
 meeting-recorder gui-screenshot --output meeting-recorder-gui.png
 ```
 
-If your desktop environment hides tray/status icons, enable its AppIndicator/system-tray extension. The app intentionally does **not** fall back to a floating top-right corner bar, because that is not the requested product shape.
+If your desktop environment hides tray/status icons, enable its AppIndicator/system-tray extension. The app intentionally does **not** fall back to a floating top-right corner bar, because that is not the requested product shape. On Pop!_OS COSMIC, Meeting Recorder reports COSMIC-aware diagnostics and uses generic AppIndicator/tray support plus Tk for the dropdown; it does not claim native COSMIC APIs yet.
+
+Pause/resume is implemented as a best-effort Linux process pause (`SIGSTOP`/`SIGCONT`) of the local ffmpeg recorder. Saved metadata includes pause intervals and active duration so recordings remain honest about paused time.
 
 ## Obsidian export
 
@@ -258,7 +263,7 @@ Install one of the supported local transcription engines. The fallback transcrip
 User-local installer:
 
 ```bash
-~/.local/opt/meeting-recorder-app-0.5.3/uninstall.sh
+~/.local/opt/meeting-recorder-app-0.6.0/uninstall.sh
 ```
 
 Debian/Ubuntu package:

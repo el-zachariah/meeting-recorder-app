@@ -30,6 +30,12 @@ class FakeApp:
     def toggle_recording(self):
         self.recording_toggled = True
 
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.resumed = True
+
     def shutdown(self):
         self.closed = True
 
@@ -97,7 +103,7 @@ def test_create_tray_icon_uses_native_tray_menu_without_corner_window(monkeypatc
     assert created["name"] == "meeting-recorder"
     assert created["title"] == "Meeting Recorder"
     menu_labels = [item.text for item in created["menu"]]
-    assert menu_labels == ["Open Meeting Recorder", "Start / Stop Recording", "Quit"]
+    assert menu_labels == ["Open Meeting Recorder", "Start / Stop Recording", "Pause Recording", "Resume Recording", "Quit"]
     assert created["menu"][0].default is True
 
     created["menu"][0].action(icon, created["menu"][0])
@@ -105,6 +111,10 @@ def test_create_tray_icon_uses_native_tray_menu_without_corner_window(monkeypatc
     created["menu"][1].action(icon, created["menu"][1])
     assert app.recording_toggled is True
     created["menu"][2].action(icon, created["menu"][2])
+    assert app.paused is True
+    created["menu"][3].action(icon, created["menu"][3])
+    assert app.resumed is True
+    created["menu"][4].action(icon, created["menu"][4])
     assert app.closed is True
 
 

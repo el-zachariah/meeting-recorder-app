@@ -8,8 +8,10 @@ from meeting_recorder.recorder import (
     build_ffmpeg_command,
     detect_audio_sources,
     detect_screen_size,
+    pause_recording,
     parse_ffmpeg_pulse_sources,
     preflight_recording,
+    resume_recording,
     start_recording,
     stop_recording,
 )
@@ -196,3 +198,22 @@ def test_stop_recording_sends_q_and_closes_log(tmp_path):
 
     assert writes == ["q\n"]
     assert log.closed
+
+
+def test_pause_and_resume_recording_send_process_signals(tmp_path):
+    signals = []
+
+    class Proc:
+        def poll(self):
+            return None
+        def send_signal(self, sig):
+            signals.append(sig)
+
+    from meeting_recorder.recorder import RecorderProcess
+    recorder = RecorderProcess(Proc(), tmp_path / "out.mkv", ["ffmpeg"])
+
+    pause_recording(recorder)
+    resume_recording(recorder)
+
+    assert recorder.paused is False
+    assert len(signals) == 2

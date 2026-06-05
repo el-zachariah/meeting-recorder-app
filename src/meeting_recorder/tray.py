@@ -11,7 +11,8 @@ TRAY_DEPENDENCY_MESSAGE = (
     "Meeting Recorder needs native system tray support for the GUI. "
     "Install it with: sudo apt install python3-pystray python3-pil python3-gi "
     "gir1.2-ayatanaappindicator3-0.1. "
-    "If your desktop hides tray icons, enable an AppIndicator/system-tray extension."
+    "If your desktop hides tray icons, enable an AppIndicator/system-tray extension. "
+    "On Pop!_OS COSMIC this is generic AppIndicator support, not native COSMIC integration."
 )
 
 
@@ -96,6 +97,12 @@ def create_tray_icon(app: Any) -> Any:
     def toggle_recording(_icon: Any, _item: Any = None) -> None:
         _schedule(app.root, app.toggle_recording)
 
+    def pause(_icon: Any, _item: Any = None) -> None:
+        _schedule(app.root, app.pause)
+
+    def resume(_icon: Any, _item: Any = None) -> None:
+        _schedule(app.root, app.resume)
+
     def quit_app(_icon: Any, _item: Any = None) -> None:
         _schedule(app.root, app.shutdown)
 
@@ -106,6 +113,8 @@ def create_tray_icon(app: Any) -> Any:
         pystray.Menu(
             pystray.MenuItem("Open Meeting Recorder", open_dropdown, default=True),
             pystray.MenuItem("Start / Stop Recording", toggle_recording),
+            pystray.MenuItem("Pause Recording", pause),
+            pystray.MenuItem("Resume Recording", resume),
             pystray.MenuItem("Quit", quit_app),
         ),
     )

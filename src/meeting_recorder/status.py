@@ -60,6 +60,35 @@ def _display_server() -> tuple[str | None, dict[str, str | None]]:
     return None, {"DISPLAY": display, "WAYLAND_DISPLAY": wayland}
 
 
+def _desktop_session_check() -> CheckItem:
+    current = os.environ.get("XDG_CURRENT_DESKTOP")
+    session = os.environ.get("XDG_SESSION_DESKTOP")
+    desktop = " ".join(value for value in (current, session) if value).lower()
+    details = {"XDG_CURRENT_DESKTOP": current, "XDG_SESSION_DESKTOP": session, "XDG_SESSION_TYPE": os.environ.get("XDG_SESSION_TYPE")}
+    if "cosmic" in desktop:
+        return CheckItem(
+            "desktop_session",
+            "warn",
+            "COSMIC desktop detected; Meeting Recorder uses the generic AppIndicator tray and Tk dropdown rather than native COSMIC APIs",
+            details,
+        )
+    if current or session:
+        return CheckItem("desktop_session", "pass", f"Desktop session detected: {current or session}", details)
+    return CheckItem("desktop_session", "warn", "Desktop session variables are not set; tray visibility depends on your panel/AppIndicator support", details)
+
+
+def _tray_support_check() -> CheckItem:
+    pystray_available = importlib.util.find_spec("pystray") is not None
+    gi_available = importlib.util.find_spec("gi") is not None
+    current = (os.environ.get("XDG_CURRENT_DESKTOP") or "").lower()
+    status = "pass" if pystray_available else "warn"
+    message = "pystray is importable for the AppIndicator/system-tray dropdown" if pystray_available else "pystray is not importable; GUI tray startup will explain required packages"
+    if "cosmic" in current:
+        status = "warn" if pystray_available else "error"
+        message += "; on COSMIC, verify the panel exposes AppIndicator/system-tray icons"
+    return CheckItem("tray", status, message, {"pystray": str(pystray_available), "gi": str(gi_available), "desktop": current})
+
+
 def _audio_sources_checks() -> list[CheckItem]:
     detection = detect_audio_sources()
     legacy = detection.legacy_dict()
@@ -137,6 +166,9 @@ def build_environment_report(output_dir: Path | str | None = None) -> Environmen
         checks.append(CheckItem("display", "warn", "Wayland detected; x11grab recording may require an XWayland DISPLAY", env_details))
     else:
         checks.append(CheckItem("display", "warn", "No DISPLAY or WAYLAND_DISPLAY is set; audio-first recording can still work, but optional screen video needs X11/XWayland", env_details))
+
+    checks.append(_desktop_session_check())
+    checks.append(_tray_support_check())
 
     size = detect_screen_size()
     checks.append(
