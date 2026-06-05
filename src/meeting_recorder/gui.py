@@ -863,7 +863,7 @@ def capture_gui_evidence(default_dir: Path, output_path: Path) -> Path:
             return output_path
 
         app = CompactDropdownGUI(root, default_dir)
-        app.show_tray_dropdown()
+        app.render_popover()
         root.update_idletasks()
         root.update()
         target = app.popover if app.popover and app.popover.winfo_exists() else root
