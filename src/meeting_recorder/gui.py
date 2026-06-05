@@ -833,19 +833,11 @@ class CompactDropdownGUI(MeetingRecorderGUI):
         color = SUCCESS if gate and gate.status == "ready" else (RECORD if gate and gate.status == "blocked" else WARN)
         tk.Label(parent, text=status_text, bg=PANEL, fg=color, wraplength=390, justify="left", anchor="w").grid(row=2, column=0, sticky="ew", pady=(0, 8))
         next_row = 3
-        if gate and (gate.blocking or gate.warnings):
-            issues = gate.blocking + [w for w in gate.warnings if w not in gate.blocking]
-            issue_text = "\n".join(f"• {issue}" for issue in issues)
-            tk.Label(parent, text=issue_text, bg=PANEL, fg=MUTED, wraplength=390, justify="left", anchor="w").grid(row=next_row, column=0, sticky="ew", pady=(0, 10))
-            next_row += 1
-        if self.last_report and self.last_report.checks:
-            indicators = ttk.Labelframe(parent, text="Indicators", style="Section.TLabelframe", padding=8)
-            indicators.grid(row=next_row, column=0, sticky="ew", pady=(0, 10))
-            indicators.columnconfigure(0, weight=1)
-            for idx, check in enumerate(self.last_report.checks):
-                style = {"pass": "Pass.TLabel", "warn": "Warn.TLabel", "error": "Error.TLabel"}.get(check.status, "Panel.TLabel")
-                ttk.Label(indicators, text=format_check_item(check), style=style, wraplength=370, justify="left").grid(row=idx, column=0, sticky="w", pady=1)
-            next_row += 1
+
+        # Keep the actual recorder workflow above diagnostics. The previous
+        # layout could fill the visible dropdown with setup warnings before the
+        # user ever saw Record/Pause/Stop/Settings, which is exactly the wrong
+        # product shape for a tray dropdown recorder.
         form = ttk.Frame(parent, style="Panel.TFrame")
         form.grid(row=next_row, column=0, sticky="ew")
         next_row += 1
@@ -881,6 +873,28 @@ class CompactDropdownGUI(MeetingRecorderGUI):
         if gate and gate.suggested_action == "Record without transcript":
             ttk.Button(actions, text="Record without transcript", command=self._record_without_transcript).grid(row=2, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         ttk.Button(actions, text="Settings…", command=self.show_settings_panel).grid(row=3, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        if gate and (gate.blocking or gate.warnings):
+            issues = gate.blocking + [w for w in gate.warnings if w not in gate.blocking]
+            shown = issues[:4]
+            extra = len(issues) - len(shown)
+            issue_text = "\n".join(f"• {issue}" for issue in shown)
+            if extra > 0:
+                issue_text += f"\n• …and {extra} more setup item(s). Run meeting-recorder doctor for details."
+            diagnostics = ttk.Labelframe(parent, text="Setup notes", style="Section.TLabelframe", padding=8)
+            diagnostics.grid(row=next_row, column=0, sticky="ew", pady=(4, 8))
+            diagnostics.columnconfigure(0, weight=1)
+            tk.Label(diagnostics, text=issue_text, bg=PANEL, fg=MUTED, wraplength=370, justify="left", anchor="w").grid(row=0, column=0, sticky="ew")
+            next_row += 1
+        if self.last_report and self.last_report.checks:
+            indicators = ttk.Labelframe(parent, text="Key indicators", style="Section.TLabelframe", padding=8)
+            indicators.grid(row=next_row, column=0, sticky="ew", pady=(0, 8))
+            indicators.columnconfigure(0, weight=1)
+            for idx, check in enumerate(self.last_report.checks[:4]):
+                style = {"pass": "Pass.TLabel", "warn": "Warn.TLabel", "error": "Error.TLabel"}.get(check.status, "Panel.TLabel")
+                ttk.Label(indicators, text=format_check_item(check), style=style, wraplength=370, justify="left").grid(row=idx, column=0, sticky="w", pady=1)
+            if len(self.last_report.checks) > 4:
+                ttk.Label(indicators, text=f"…and {len(self.last_report.checks) - 4} more. Run meeting-recorder doctor for the full report.", style="Muted.TLabel", wraplength=370, justify="left").grid(row=4, column=0, sticky="w", pady=(4, 0))
+            next_row += 1
         tk.Label(parent, text="Privacy: no uploads by default. Recordings and transcripts stay on this computer.", bg=PANEL, fg=MUTED, wraplength=390, justify="left", anchor="w").grid(row=next_row, column=0, sticky="ew", pady=(8, 0))
         next_row += 1
         if self.current_meeting:
