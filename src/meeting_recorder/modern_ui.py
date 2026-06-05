@@ -160,7 +160,11 @@ def _is_electron(executable: str) -> bool:
 def capture_modern_gui_screenshot(default_dir: Path, output_path: Path) -> Path:
     output_path = Path(output_path).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="meeting-recorder-ui-") as td:
+    # Some sandboxed Chromium builds (notably snap Chromium) cannot read files
+    # from /tmp even though they exit successfully and save an ERR_FILE_NOT_FOUND
+    # screenshot. Put the evidence HTML next to the requested output so the
+    # renderer can actually read it under CI and local release gates.
+    with tempfile.TemporaryDirectory(prefix="meeting-recorder-ui-", dir=str(output_path.parent)) as td:
         # Release evidence must match the approved visual direction exactly, not
         # drift with a developer's persisted settings/default output folder.
         html = write_modern_ui_html(Path(td) / "meeting-recorder-modern.html", ModernGuiState())
