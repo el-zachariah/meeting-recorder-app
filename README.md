@@ -9,8 +9,8 @@ Meeting Recorder is designed for people who want meeting artifacts to stay on th
 From the source installer release asset:
 
 ```bash
-tar -xzf meeting-recorder-app-0.5.0-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.5.0
+tar -xzf meeting-recorder-app-0.5.3-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.5.3
 ./install.sh
 ~/.local/bin/meeting-recorder doctor
 ~/.local/bin/meeting-recorder gui
@@ -36,14 +36,14 @@ meeting-recorder open <meeting-id> --target summary
 ### Option 1: user-local source installer (recommended for most Linux users)
 
 ```bash
-tar -xzf meeting-recorder-app-0.5.0-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.5.0
+tar -xzf meeting-recorder-app-0.5.3-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.5.3
 ./install.sh
 ```
 
 This installs to:
 
-- app files: `~/.local/opt/meeting-recorder-app-0.5.0`
+- app files: `~/.local/opt/meeting-recorder-app-0.5.3`
 - command: `~/.local/bin/meeting-recorder`
 - desktop launcher: `~/.local/share/applications/meeting-recorder.desktop`
 
@@ -52,12 +52,12 @@ If `~/.local/bin` is not on your PATH, either add it or run `~/.local/bin/meetin
 ### Option 2: Debian/Ubuntu package
 
 ```bash
-sudo apt install ./meeting-recorder-app_0.5.0_all.deb
+sudo apt install ./meeting-recorder-app_0.5.3_all.deb
 meeting-recorder doctor
 meeting-recorder gui
 ```
 
-The `.deb` declares dependencies on `python3`, `python3-tk`, and `ffmpeg`.
+The `.deb` declares the native runtime dependencies used by the tray app, including `python3`, `python3-tk`, `python3-pystray`, `python3-pil`, `python3-gi`, AppIndicator/Ayatana GIR bindings, and `ffmpeg`.
 
 ### Option 3: run from a source checkout
 
@@ -70,13 +70,13 @@ cd meeting-recorder-app
 
 ## Distro dependencies
 
-Meeting Recorder has no required Python package dependencies, but it relies on system tools for capture and desktop UI.
+Meeting Recorder relies on a small native desktop Python stack plus system tools for capture and tray UI.
 
 Debian/Ubuntu:
 
 ```bash
 sudo apt update
-sudo apt install python3 python3-tk ffmpeg pulseaudio-utils x11-utils
+sudo apt install python3 python3-tk python3-pystray python3-pil python3-gi gir1.2-ayatanaappindicator3-0.1 ffmpeg pulseaudio-utils x11-utils
 ```
 
 Fedora:
@@ -147,8 +147,14 @@ meeting-recorder gui
 Native tray support is required. On Debian/Ubuntu installs, the `.deb` package pulls this in automatically. For source checkout/user-local installs, install the tray backend first:
 
 ```bash
-sudo apt install python3-pystray python3-pil python3-tk
+sudo apt install python3-pystray python3-pil python3-tk python3-gi gir1.2-ayatanaappindicator3-0.1
 meeting-recorder gui
+```
+
+For installed artifact release smoke/evidence, render the dropdown surface to a PNG without publishing anything:
+
+```bash
+meeting-recorder gui-screenshot --output meeting-recorder-gui.png
 ```
 
 If your desktop environment hides tray/status icons, enable its AppIndicator/system-tray extension. The app intentionally does **not** fall back to a floating top-right corner bar, because that is not the requested product shape.
@@ -252,7 +258,7 @@ Install one of the supported local transcription engines. The fallback transcrip
 User-local installer:
 
 ```bash
-~/.local/opt/meeting-recorder-app-0.5.2/uninstall.sh
+~/.local/opt/meeting-recorder-app-0.5.3/uninstall.sh
 ```
 
 Debian/Ubuntu package:

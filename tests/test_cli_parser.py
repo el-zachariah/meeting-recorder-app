@@ -5,7 +5,7 @@ def test_parser_description_and_new_commands():
     parser = build_parser()
     help_text = parser.format_help()
     assert "Local-first Linux meeting recorder" in help_text
-    for command in ["doctor", "status", "list", "show", "open"]:
+    for command in ["doctor", "status", "list", "show", "open", "gui-screenshot"]:
         assert command in help_text
 
 
@@ -41,6 +41,13 @@ def test_gui_parser_is_tray_dropdown_only():
         assert exc.code != 0
     else:  # pragma: no cover - argparse should reject the removed escape hatch
         raise AssertionError("--full should not be accepted because the GUI is tray/dropdown only")
+
+
+def test_gui_screenshot_parser_requires_output_path():
+    args = build_parser().parse_args(["gui-screenshot", "--output", "/tmp/gui.png", "--output-dir", "/tmp/meetings"])
+    assert args.command == "gui-screenshot"
+    assert args.output == "/tmp/gui.png"
+    assert args.output_dir == "/tmp/meetings"
 
 
 def test_library_parsers():

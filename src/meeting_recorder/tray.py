@@ -9,7 +9,8 @@ class TrayBackendUnavailable(RuntimeError):
 
 TRAY_DEPENDENCY_MESSAGE = (
     "Meeting Recorder needs native system tray support for the GUI. "
-    "Install it with: sudo apt install python3-pystray python3-pil. "
+    "Install it with: sudo apt install python3-pystray python3-pil python3-gi "
+    "gir1.2-ayatanaappindicator3-0.1. "
     "If your desktop hides tray icons, enable an AppIndicator/system-tray extension."
 )
 

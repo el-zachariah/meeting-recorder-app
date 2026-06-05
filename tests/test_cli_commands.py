@@ -93,6 +93,24 @@ def test_gui_parser_is_tray_dropdown_only():
     assert args.output_dir == "/tmp/meetings"
 
 
+def test_gui_screenshot_command_writes_evidence_path(monkeypatch, tmp_path, capsys):
+    output = tmp_path / "gui.png"
+    calls = []
+
+    def fake_capture(default_dir, output_path):
+        calls.append((default_dir, output_path))
+        output_path.write_bytes(b"png")
+        return output_path
+
+    monkeypatch.setattr("meeting_recorder.gui.capture_gui_evidence", fake_capture)
+
+    code = main(["gui-screenshot", "--output-dir", str(tmp_path / "Meetings"), "--output", str(output)])
+
+    assert code == 0
+    assert calls == [(tmp_path / "Meetings", output)]
+    assert str(output) in capsys.readouterr().out
+
+
 def test_record_start_failure_json(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr("meeting_recorder.cli._has_transcription_engine", lambda: True)
     monkeypatch.setattr("meeting_recorder.cli.start_recording", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no display")))

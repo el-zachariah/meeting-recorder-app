@@ -42,6 +42,7 @@ def test_require_tray_backend_rejects_missing_pystray(monkeypatch):
 
     assert "system tray" in str(exc.value)
     assert "python3-pystray" in str(exc.value)
+    assert "gir1.2-ayatanaappindicator3" in str(exc.value)
 
 
 def test_create_tray_icon_uses_native_tray_menu_without_corner_window(monkeypatch):
@@ -152,3 +153,30 @@ def test_start_tray_icon_marks_icon_visible_and_pumps_glib_context(monkeypatch):
 
     assert events == [("iteration", False), ("iteration", False)]
     assert app.root.calls[-1][0] == 50
+
+
+def test_waveform_canvas_tolerates_legacy_positional_height(monkeypatch):
+    import importlib
+    import tkinter
+
+    created = {}
+
+    class FakeCanvas:
+        def __init__(self, master, **kwargs):
+            created["master"] = master
+            created["kwargs"] = kwargs
+
+    previous_gui = sys.modules.pop("meeting_recorder.gui", None)
+    monkeypatch.setattr(tkinter, "Canvas", FakeCanvas)
+    try:
+        gui = importlib.import_module("meeting_recorder.gui")
+        gui.WaveformCanvas("root", 52, height=1)
+    finally:
+        sys.modules.pop("meeting_recorder.gui", None)
+        if previous_gui is not None:
+            sys.modules["meeting_recorder.gui"] = previous_gui
+
+    assert created["master"] == "root"
+    assert created["kwargs"]["height"] == 1
+    assert created["kwargs"]["bg"] == gui.PANEL
+    assert created["kwargs"]["highlightthickness"] == 0

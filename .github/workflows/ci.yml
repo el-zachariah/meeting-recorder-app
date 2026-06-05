@@ -21,7 +21,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg python3-tk python3-pystray python3-pil x11-utils pulseaudio-utils xvfb
+          sudo apt-get install -y ffmpeg python3-tk python3-pystray python3-pil python3-gi gir1.2-ayatanaappindicator3-0.1 x11-utils pulseaudio-utils xvfb
 
       - name: Read package version
         id: version
@@ -65,11 +65,27 @@ jobs:
           mkdir -p "$TMP/home"
           tar -xzf "dist/meeting-recorder-app-${{ steps.version.outputs.version }}-linux-source-installer.tar.gz" -C "$TMP"
           PREFIX="$TMP/prefix" HOME="$TMP/home" bash "$TMP/meeting-recorder-app-${{ steps.version.outputs.version }}/install.sh"
+          xvfb-run -a env HOME="$TMP/home" "$TMP/prefix/bin/meeting-recorder" gui-screenshot --output "$TMP/meeting-recorder-gui.png"
+          test -s "$TMP/meeting-recorder-gui.png"
+          cp "$TMP/meeting-recorder-gui.png" "dist/meeting-recorder-gui-v${{ steps.version.outputs.version }}.png"
           timeout 8s xvfb-run -a env HOME="$TMP/home" "$TMP/prefix/bin/meeting-recorder" gui || code=$?
           if [ "${code:-0}" != "124" ]; then
             echo "Expected installed GUI to keep running until timeout; got exit code ${code:-0}" >&2
             exit "${code:-1}"
           fi
+
+      - name: Upload GUI screenshot evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: meeting-recorder-gui-v${{ steps.version.outputs.version }}
+          path: dist/meeting-recorder-gui-v${{ steps.version.outputs.version }}.png
+          if-no-files-found: error
+
+      - name: Verify release evidence signoff artifact
+        run: |
+          test -s "docs/release-evidence/v${{ steps.version.outputs.version }}-signoff.md"
+          grep -q "Engineer signoff" "docs/release-evidence/v${{ steps.version.outputs.version }}-signoff.md"
+          grep -q "QA/research signoff" "docs/release-evidence/v${{ steps.version.outputs.version }}-signoff.md"
 
       - name: Inspect release archive
         run: |

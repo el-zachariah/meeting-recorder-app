@@ -234,6 +234,14 @@ def cmd_gui(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_gui_screenshot(args: argparse.Namespace) -> int:
+    from .gui import capture_gui_evidence
+
+    path = capture_gui_evidence(default_dir=Path(args.output_dir), output_path=Path(args.output))
+    print(path)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Local-first Linux meeting recorder")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -317,6 +325,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("gui", help="Launch the tray-style dropdown recorder")
     p.add_argument("--output-dir", default=str(DEFAULT_DIR))
     p.set_defaults(func=cmd_gui)
+
+    p = sub.add_parser("gui-screenshot", help="Render the dropdown GUI to a PNG evidence screenshot")
+    p.add_argument("--output-dir", default=str(DEFAULT_DIR))
+    p.add_argument("--output", required=True, help="PNG screenshot path to write")
+    p.set_defaults(func=cmd_gui_screenshot)
 
     return parser
 

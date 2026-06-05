@@ -6,8 +6,8 @@ This project ships Linux release assets for Meeting Recorder. Do not publish fro
 
 The release builder creates:
 
-- `dist/meeting-recorder-app-0.5.0-linux-source-installer.tar.gz`
-- `dist/meeting-recorder-app_0.5.0_all.deb` when `dpkg-deb` is installed
+- `dist/meeting-recorder-app-0.5.3-linux-source-installer.tar.gz`
+- `dist/meeting-recorder-app_0.5.3_all.deb` when `dpkg-deb` is installed
 - `dist/SHA256SUMS`
 
 The source installer contains app source, docs, tests, `install.sh`, `uninstall.sh`, `meeting-recorder.desktop`, and the launcher wrapper. It excludes git metadata, caches, virtual environments, build output, previous release artifacts, egg-info, bytecode, and private meeting data.
@@ -25,6 +25,14 @@ python3 scripts/build_release_assets.py
 (cd dist && sha256sum -c SHA256SUMS)
 ```
 
+Create the release lifecycle evidence/signoff artifact before publishing. Keep it
+in `docs/release-evidence/` and attach a copy or the generated bundle to the
+release notes after approval:
+
+```bash
+cp docs/release-evidence/v0.5.3-signoff.md /tmp/meeting-recorder-v0.5.3-signoff.md
+```
+
 Tarball install smoke test:
 
 ```bash
@@ -36,6 +44,10 @@ tar -xzf "dist/meeting-recorder-app-${VERSION}-linux-source-installer.tar.gz" -C
 (cd "$TMP_HOME/meeting-recorder-app-${VERSION}" && HOME="$TMP_HOME" PREFIX="$TMP_PREFIX" ./install.sh)
 HOME="$TMP_HOME" "$TMP_PREFIX/bin/meeting-recorder" --help
 HOME="$TMP_HOME" "$TMP_PREFIX/bin/meeting-recorder" doctor || true
+if command -v xvfb-run >/dev/null 2>&1; then
+  HOME="$TMP_HOME" xvfb-run -a "$TMP_PREFIX/bin/meeting-recorder" gui-screenshot --output "$TMP_HOME/meeting-recorder-gui.png"
+  test -s "$TMP_HOME/meeting-recorder-gui.png"
+fi
 if command -v xvfb-run >/dev/null 2>&1; then
   timeout 8s xvfb-run -a env HOME="$TMP_HOME" "$TMP_PREFIX/bin/meeting-recorder" gui || code=$?
   test "${code:-0}" = "124"
@@ -58,4 +70,4 @@ dpkg-deb --contents "dist/meeting-recorder-app_${VERSION}_all.deb"
 4. Create and push tag `v${VERSION}` only after approval.
 5. Upload the source installer, Debian package when built, and SHA256SUMS to the GitHub release.
 
-Publish only after the release gate passes: tests, package build, checksum verification, GitHub upload, downloaded-asset verification, and honest known limitations.
+Publish only after the release gate passes: tests, package build, checksum verification, engineer signoff, QA/research signoff, GitHub upload, downloaded-asset verification, GUI screenshot/evidence, and honest known limitations.

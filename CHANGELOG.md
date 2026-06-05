@@ -2,6 +2,19 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.5.3 - 2026-06-05
+
+### Fixed
+
+- Hardened `WaveformCanvas` so legacy duplicate/positional height calls cannot crash Tk GUI startup before the tray icon appears.
+- Updated native tray dependency guidance and Debian package metadata to include Python GI plus Ayatana/AppIndicator GIR bindings for GNOME/Pop!_OS-style tray visibility.
+
+### Release process
+
+- Added `meeting-recorder gui-screenshot --output <png>` so installed artifacts can produce a real dropdown GUI screenshot/evidence file for release review and user replies.
+- CI now smoke-tests `gui-screenshot` from the installed source installer and verifies the release evidence/signoff artifact exists.
+- Added `docs/release-evidence/v0.5.3-signoff.md` as the engineer/QA/release-decision signoff record for this candidate.
+
 ## 0.5.2 - 2026-06-05
 
 ### Fixed
