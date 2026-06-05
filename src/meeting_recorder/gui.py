@@ -977,67 +977,29 @@ class SystemTrayDropdownGUI(CompactDropdownGUI):
 
 
 def main(default_dir: Path) -> None:
-    root = tk.Tk()
-    root.withdraw()
+    """Launch the modern WebView/Electron-style GUI.
+
+    v0.7.0 deliberately stops using the Tk/Ttk tray dropdown as the user-facing
+    surface. The legacy classes above remain only for compatibility tests and as
+    a reference for the existing recorder workflow; CLI startup now opens the
+    approved HTML/CSS UI in Electron when available or a Chromium app window.
+    """
+
+    from .modern_ui import launch_modern_gui
+
     try:
-        SystemTrayDropdownGUI(root, default_dir)
-    except TrayBackendUnavailable as exc:
-        root.destroy()
+        raise SystemExit(launch_modern_gui(default_dir))
+    except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         raise SystemExit(2) from exc
-    root.mainloop()
 
 
 def capture_gui_evidence(default_dir: Path, output_path: Path) -> Path:
-    """Render the dropdown GUI and save a PNG screenshot for release evidence.
+    """Render the approved v0.7.0 HTML/CSS UI to a PNG evidence screenshot."""
 
-    This intentionally bypasses the native tray icon so CI and release engineers
-    can capture the Tk dropdown surface from an installed artifact under xvfb.
-    Normal `meeting-recorder gui` startup still requires the native tray backend.
-    In headless environments without a display/Pillow, it writes a deterministic
-    PNG evidence card so the release gate still has an artifact and an honest
-    signal that live screenshot capture was unavailable.
-    """
+    from .modern_ui import capture_modern_gui_screenshot
 
-    output_path = Path(output_path).expanduser().resolve()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    try:
-        root = tk.Tk()
-    except tk.TclError:
-        _write_static_gui_evidence_png(output_path)
-        return output_path
-
-    app: CompactDropdownGUI | None = None
-    try:
-        try:
-            from PIL import ImageGrab  # type: ignore[import-not-found]
-        except Exception:
-            _write_static_gui_evidence_png(output_path)
-            return output_path
-
-        app = CompactDropdownGUI(root, default_dir)
-        app.render_popover()
-        if app.popover and app.popover.winfo_exists():
-            # The normal dropdown positions itself near the screen edge. For
-            # release evidence under Xvfb, move it fully on-screen before
-            # grabbing pixels so the screenshot is not cropped by display bounds.
-            app.popover.geometry("+20+20")
-        root.update_idletasks()
-        root.update()
-        target = app.popover if app.popover and app.popover.winfo_exists() else root
-        x = target.winfo_rootx()
-        y = target.winfo_rooty()
-        width = max(1, target.winfo_width())
-        height = max(1, target.winfo_height())
-        ImageGrab.grab(bbox=(x, y, x + width, y + height)).save(output_path)
-        return output_path
-    finally:
-        try:
-            if app and app.popover and app.popover.winfo_exists():
-                app.popover.destroy()
-        finally:
-            root.destroy()
+    return capture_modern_gui_screenshot(default_dir, output_path)
 
 
 def _write_static_gui_evidence_png(output_path: Path) -> None:

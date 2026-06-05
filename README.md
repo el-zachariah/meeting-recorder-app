@@ -9,8 +9,8 @@ Meeting Recorder is designed for people who want meeting artifacts to stay on th
 From the source installer release asset:
 
 ```bash
-tar -xzf meeting-recorder-app-0.6.0-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.6.0
+tar -xzf meeting-recorder-app-0.7.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.7.0
 ./install.sh
 ~/.local/bin/meeting-recorder doctor
 ~/.local/bin/meeting-recorder gui
@@ -36,14 +36,14 @@ meeting-recorder open <meeting-id> --target summary
 ### Option 1: user-local source installer (recommended for most Linux users)
 
 ```bash
-tar -xzf meeting-recorder-app-0.6.0-linux-source-installer.tar.gz
-cd meeting-recorder-app-0.6.0
+tar -xzf meeting-recorder-app-0.7.0-linux-source-installer.tar.gz
+cd meeting-recorder-app-0.7.0
 ./install.sh
 ```
 
 This installs to:
 
-- app files: `~/.local/opt/meeting-recorder-app-0.6.0`
+- app files: `~/.local/opt/meeting-recorder-app-0.7.0`
 - command: `~/.local/bin/meeting-recorder`
 - desktop launcher: `~/.local/share/applications/meeting-recorder.desktop`
 
@@ -52,12 +52,12 @@ If `~/.local/bin` is not on your PATH, either add it or run `~/.local/bin/meetin
 ### Option 2: Debian/Ubuntu package
 
 ```bash
-sudo apt install ./meeting-recorder-app_0.6.0_all.deb
+sudo apt install ./meeting-recorder-app_0.7.0_all.deb
 meeting-recorder doctor
 meeting-recorder gui
 ```
 
-The `.deb` declares the native runtime dependencies used by the tray app, including `python3`, `python3-tk`, `python3-pystray`, `python3-pil`, `python3-gi`, AppIndicator/Ayatana GIR bindings, and `ffmpeg`.
+The `.deb` declares the native runtime dependencies used by the modern GUI and recorder, including `python3`, `ffmpeg`, and `chromium | electron`.
 
 ### Option 3: run from a source checkout
 
@@ -70,25 +70,25 @@ cd meeting-recorder-app
 
 ## Distro dependencies
 
-Meeting Recorder relies on a small native desktop Python stack plus system tools for capture and tray UI.
+Meeting Recorder relies on Python, ffmpeg, and an installed Chromium/Electron-compatible runtime for the modern desktop UI.
 
 Debian/Ubuntu:
 
 ```bash
 sudo apt update
-sudo apt install python3 python3-tk python3-pystray python3-pil python3-gi gir1.2-ayatanaappindicator3-0.1 ffmpeg pulseaudio-utils x11-utils
+sudo apt install python3 ffmpeg chromium pulseaudio-utils x11-utils
 ```
 
 Fedora:
 
 ```bash
-sudo dnf install python3 python3-tkinter ffmpeg pulseaudio-utils xorg-x11-utils
+sudo dnf install python3 ffmpeg chromium pulseaudio-utils xorg-x11-utils
 ```
 
 Arch Linux:
 
 ```bash
-sudo pacman -S python tk ffmpeg libpulse xorg-xdpyinfo
+sudo pacman -S python ffmpeg chromium libpulse xorg-xdpyinfo
 ```
 
 Notes:
@@ -129,28 +129,23 @@ By default recordings are saved under `~/Meetings/YYYY-MM-DD_HH-MM-SS_title/` wi
 - `summary.md` when summary generation runs
 
 
-## Tray/dropdown desktop workflow
+## Modern desktop workflow
 
-The GUI is a real system-tray workflow: `meeting-recorder gui` adds a Meeting Recorder logo to your desktop environment's tray/status area and keeps the main Tk window hidden. Click the tray icon/default tray action to open the dropdown control panel. The dropdown contains the full operational surface for meetings:
+The v0.7.0 GUI is a modern Electron/WebView-style recorder panel matching the approved release direction in `docs/design/v0.7.0/approved-ui-direction.png`. `meeting-recorder gui` opens the polished recorder surface in Electron when available, otherwise in a Chromium app window. The frontend is HTML/CSS with a small local Python JSON bridge for state/actions, while the existing Python recorder backend remains the recording path:
 
-- all setup indicators from the environment doctor, including ffmpeg, display/session, screen size, audio sources, tkinter, local transcription, output folder, and privacy mode
-- system audio capture status, with a clear warning if meeting/app sound will not be recorded
-- microphone status
-- visible Record, Pause, Resume, and Stop controls in the dropdown
-- timestamp-based default meeting/folder title such as `Meeting 2026-06-05 14:30`
-- default save location and transcriber model controls in Settings; persisted under XDG config (`~/.config/meeting-recorder/settings.json` unless `XDG_CONFIG_HOME` is set)
-- optional screen video checkbox, off by default
-- local transcriber readiness, with an explicit record-without-transcript action when Whisper is not installed
-- inline stop/save naming instead of a retro pop-up dialog
+- tray/status-bar visual treatment, glassmorphism recorder popover, waveform, and save/transcribe panel from the approved v0.7.0 direction
+- visible Pause, Stop, Resume, and Save & Transcribe controls
+- persisted default save location and capture preferences (`~/.config/meeting-recorder/settings.json` unless `XDG_CONFIG_HOME` is set)
+- local bridge endpoints for UI state/actions; no cloud service is required for the UI
 
 ```bash
 meeting-recorder gui
 ```
 
-Native tray support is required. On Debian/Ubuntu installs, the `.deb` package pulls this in automatically. For source checkout/user-local installs, install the tray backend first:
+An Electron or Chromium-compatible browser runtime is required for the modern GUI. For source checkout/user-local installs, install one first:
 
 ```bash
-sudo apt install python3-pystray python3-pil python3-tk python3-gi gir1.2-ayatanaappindicator3-0.1
+sudo apt install chromium
 meeting-recorder gui
 ```
 
@@ -160,7 +155,7 @@ For installed artifact release smoke/evidence, render the dropdown surface to a 
 meeting-recorder gui-screenshot --output meeting-recorder-gui.png
 ```
 
-If your desktop environment hides tray/status icons, enable its AppIndicator/system-tray extension. The app intentionally does **not** fall back to a floating top-right corner bar, because that is not the requested product shape. On Pop!_OS COSMIC, Meeting Recorder reports COSMIC-aware diagnostics and uses generic AppIndicator/tray support plus Tk for the dropdown; it does not claim native COSMIC APIs yet.
+`meeting-recorder gui-screenshot --output <png>` uses the same approved HTML/CSS and a headless Chromium-compatible renderer. It no longer writes a fallback evidence card; if no renderer is available, the command fails so release evidence stays honest.
 
 Pause/resume is implemented as a best-effort Linux process pause (`SIGSTOP`/`SIGCONT`) of the local ffmpeg recorder. Saved metadata includes pause intervals and active duration so recordings remain honest about paused time.
 
@@ -252,7 +247,7 @@ Run `meeting-recorder doctor --check system_audio --check microphone`. System au
 
 ### GUI does not start
 
-Install tkinter for your distribution (`python3-tk`, `python3-tkinter`, or `tk`) and run `meeting-recorder doctor --check tkinter`.
+Install Chromium or Electron for your distribution and rerun `meeting-recorder gui`. For screenshots, `meeting-recorder gui-screenshot` requires a Chromium-compatible headless renderer and fails honestly if none is available.
 
 ### Transcription says unavailable
 
@@ -263,7 +258,7 @@ Install one of the supported local transcription engines. The fallback transcrip
 User-local installer:
 
 ```bash
-~/.local/opt/meeting-recorder-app-0.6.0/uninstall.sh
+~/.local/opt/meeting-recorder-app-0.7.0/uninstall.sh
 ```
 
 Debian/Ubuntu package:

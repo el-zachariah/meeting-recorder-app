@@ -2,6 +2,23 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.7.0 - 2026-06-05
+
+### Changed
+
+- Replaced the rejected Tk/Ttk tray dropdown surface with a modern Electron/WebView-style HTML/CSS UI matching `docs/design/v0.7.0/approved-ui-direction.png`.
+- `meeting-recorder gui-screenshot` now renders the modern v0.7.0 UI through a Chromium-compatible headless renderer instead of producing a Tk screenshot or fallback evidence card.
+- `meeting-recorder gui` now launches the modern frontend in Electron when available, otherwise Chromium app mode; it no longer starts the Tk/Ttk GUI path.
+
+### Added
+
+- Added a small stdlib Python JSON bridge service for frontend state and UI action dispatch, ready to connect to the existing recorder backend.
+- Added modern UI/bridge regression tests and v0.7.0 release evidence documentation.
+
+### Release process
+
+- Updated release asset versioning and documentation to v0.7.0.
+
 ## 0.6.0 - 2026-06-05
 
 ### Added

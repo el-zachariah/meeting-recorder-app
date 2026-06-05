@@ -230,7 +230,7 @@ exec python3 -m meeting_recorder.cli "$@"
         control_dir = package_root / "DEBIAN"
         control_dir.mkdir(parents=True, exist_ok=True)
         installed_size = max(1, sum(p.stat().st_size for p in package_root.rglob("*") if p.is_file()) // 1024)
-        (control_dir / "control").write_text(f"""Package: {PACKAGE_NAME}\nVersion: {version}\nSection: utils\nPriority: optional\nArchitecture: all\nDepends: python3 (>= 3.10), python3-tk, python3-pystray, python3-pil, python3-gi, gir1.2-ayatanaappindicator3-0.1 | gir1.2-appindicator3-0.1, ffmpeg\nInstalled-Size: {installed_size}\nMaintainer: Meeting Recorder Maintainers <noreply@example.invalid>\nDescription: Local-first Linux meeting recorder\n Records screen, audio, transcripts, and summaries into private local meeting folders.\n""", encoding="utf-8")
+        (control_dir / "control").write_text(f"""Package: {PACKAGE_NAME}\nVersion: {version}\nSection: utils\nPriority: optional\nArchitecture: all\nDepends: python3 (>= 3.10), ffmpeg, chromium | electron\nInstalled-Size: {installed_size}\nMaintainer: Meeting Recorder Maintainers <noreply@example.invalid>\nDescription: Local-first Linux meeting recorder\n Records screen, audio, transcripts, and summaries into private local meeting folders with a modern WebView-style UI.\n""", encoding="utf-8")
         normalize_tree_permissions(package_root)
         env = os.environ.copy()
         env.setdefault("SOURCE_DATE_EPOCH", str(epoch))

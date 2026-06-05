@@ -322,11 +322,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", choices=["claude", "claude-code", "codex", "chatgpt"], default="claude")
     p.set_defaults(func=cmd_export_ai_prompt)
 
-    p = sub.add_parser("gui", help="Launch the tray-style dropdown recorder")
+    p = sub.add_parser("gui", help="Launch the modern WebView-style recorder UI")
     p.add_argument("--output-dir", default=str(DEFAULT_DIR))
     p.set_defaults(func=cmd_gui)
 
-    p = sub.add_parser("gui-screenshot", help="Render the dropdown GUI to a PNG evidence screenshot")
+    p = sub.add_parser("gui-screenshot", help="Render the modern v0.7.0 GUI to a PNG evidence screenshot")
     p.add_argument("--output-dir", default=str(DEFAULT_DIR))
     p.add_argument("--output", required=True, help="PNG screenshot path to write")
     p.set_defaults(func=cmd_gui_screenshot)

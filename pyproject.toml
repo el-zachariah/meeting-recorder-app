@@ -1,7 +1,7 @@
 [project]
 name = "meeting-recorder-app"
-version = "0.6.0"
-description = "Privacy-first local Linux meeting recorder with audio-first system capture, native system-tray dropdown UI, Obsidian export, local transcription fallback, and summaries"
+version = "0.7.0"
+description = "Privacy-first local Linux meeting recorder with audio-first system capture, modern WebView-style recorder UI, Obsidian export, local transcription fallback, and summaries"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}

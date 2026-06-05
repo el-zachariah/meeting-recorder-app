@@ -6,8 +6,8 @@ This project ships Linux release assets for Meeting Recorder. Do not publish fro
 
 The release builder creates:
 
-- `dist/meeting-recorder-app-0.6.0-linux-source-installer.tar.gz`
-- `dist/meeting-recorder-app_0.6.0_all.deb` when `dpkg-deb` is installed
+- `dist/meeting-recorder-app-0.7.0-linux-source-installer.tar.gz`
+- `dist/meeting-recorder-app_0.7.0_all.deb` when `dpkg-deb` is installed
 - `dist/SHA256SUMS`
 
 The source installer contains app source, docs, tests, `install.sh`, `uninstall.sh`, `meeting-recorder.desktop`, and the launcher wrapper. It excludes git metadata, caches, virtual environments, build output, previous release artifacts, egg-info, bytecode, and private meeting data.
@@ -30,7 +30,7 @@ in `docs/release-evidence/` and attach a copy or the generated bundle to the
 release notes after approval:
 
 ```bash
-cp docs/release-evidence/v0.6.0-signoff.md /tmp/meeting-recorder-v0.6.0-signoff.md
+cp docs/release-evidence/v0.7.0-signoff.md /tmp/meeting-recorder-v0.7.0-signoff.md
 ```
 
 Tarball install smoke test:
@@ -44,13 +44,11 @@ tar -xzf "dist/meeting-recorder-app-${VERSION}-linux-source-installer.tar.gz" -C
 (cd "$TMP_HOME/meeting-recorder-app-${VERSION}" && HOME="$TMP_HOME" PREFIX="$TMP_PREFIX" ./install.sh)
 HOME="$TMP_HOME" "$TMP_PREFIX/bin/meeting-recorder" --help
 HOME="$TMP_HOME" "$TMP_PREFIX/bin/meeting-recorder" doctor || true
-if command -v xvfb-run >/dev/null 2>&1; then
-  HOME="$TMP_HOME" xvfb-run -a "$TMP_PREFIX/bin/meeting-recorder" gui-screenshot --output "$TMP_HOME/meeting-recorder-gui.png"
-  test -s "$TMP_HOME/meeting-recorder-gui.png"
-fi
-if command -v xvfb-run >/dev/null 2>&1; then
-  timeout 8s xvfb-run -a env HOME="$TMP_HOME" "$TMP_PREFIX/bin/meeting-recorder" gui || code=$?
-  test "${code:-0}" = "124"
+HOME="$TMP_HOME" "$TMP_PREFIX/bin/meeting-recorder" gui-screenshot --output "$TMP_HOME/meeting-recorder-gui.png"
+test -s "$TMP_HOME/meeting-recorder-gui.png"
+if command -v chromium >/dev/null 2>&1 || command -v electron >/dev/null 2>&1; then
+  timeout 8s env HOME="$TMP_HOME" "$TMP_PREFIX/bin/meeting-recorder" gui || code=$?
+  test "${code:-0}" = "124" || test "${code:-0}" = "0"
 fi
 HOME="$TMP_HOME" PREFIX="$TMP_PREFIX" "$TMP_PREFIX/opt/meeting-recorder-app-${VERSION}/uninstall.sh"
 ```
