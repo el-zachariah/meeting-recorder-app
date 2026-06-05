@@ -348,7 +348,9 @@ class RecorderBridgeBackend:
 
 def launch_modern_gui(default_dir: Path) -> int:
     bridge = ModernBridgeService(default_dir, backend=RecorderBridgeBackend(default_dir)).start()
-    with tempfile.TemporaryDirectory(prefix="meeting-recorder-ui-") as td:
+    cache_dir = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "meeting-recorder"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="meeting-recorder-ui-", dir=str(cache_dir)) as td:
         html = write_modern_ui_html(Path(td) / "meeting-recorder-modern.html", default_state(default_dir), bridge_url=bridge.url)
         browser = _browser_candidates()[0] if _browser_candidates() else None
         if not browser:
@@ -357,7 +359,7 @@ def launch_modern_gui(default_dir: Path) -> int:
         if _is_electron(browser):
             cmd = [browser, "--no-sandbox", html.as_uri()]
         else:
-            cmd = [browser, "--app=" + html.as_uri(), f"--window-size={APP_WIDTH},{APP_HEIGHT}"]
+            cmd = [browser, "--no-sandbox", "--app=" + html.as_uri(), f"--window-size={APP_WIDTH},{APP_HEIGHT}"]
         try:
             return subprocess.call(cmd)
         finally:
