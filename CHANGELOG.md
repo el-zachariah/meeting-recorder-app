@@ -2,6 +2,13 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.5.2 - 2026-06-05
+
+### Fixed
+
+- Fixed Pop!_OS/GNOME tray invisibility caused by creating the AppIndicator tray object while Tk owned the only active mainloop. The GUI now explicitly marks the tray icon visible and pumps pending GLib/AppIndicator events from Tk.
+- Added a regression test for the Tk + GLib/AppIndicator event-loop bridge so the app does not silently create an invisible tray icon again.
+
 ## 0.5.1 - 2026-06-05
 
 ### Fixed

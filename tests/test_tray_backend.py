@@ -3,16 +3,18 @@ import types
 
 import pytest
 
-from meeting_recorder.tray import TrayBackendUnavailable, create_tray_icon, require_tray_backend
+from meeting_recorder.tray import TrayBackendUnavailable, create_tray_icon, require_tray_backend, start_tray_icon
 
 
 class FakeRoot:
-    def __init__(self):
+    def __init__(self, *, autorun_after=True):
         self.calls = []
+        self.autorun_after = autorun_after
 
     def after(self, delay, callback):
         self.calls.append((delay, callback))
-        callback()
+        if self.autorun_after:
+            callback()
 
 
 class FakeApp:
@@ -103,3 +105,50 @@ def test_create_tray_icon_uses_native_tray_menu_without_corner_window(monkeypatc
     assert app.recording_toggled is True
     created["menu"][2].action(icon, created["menu"][2])
     assert app.closed is True
+
+
+def test_start_tray_icon_marks_icon_visible_and_pumps_glib_context(monkeypatch):
+    events = []
+
+    class FakeIcon:
+        def __init__(self):
+            self.visible = False
+            self.detached = False
+
+        def run_detached(self):
+            self.detached = True
+
+    class FakeContext:
+        def __init__(self):
+            self.remaining = 2
+
+        def pending(self):
+            return self.remaining > 0
+
+        def iteration(self, may_block):
+            events.append(("iteration", may_block))
+            self.remaining -= 1
+
+    context = FakeContext()
+    fake_glib = types.SimpleNamespace(MainContext=types.SimpleNamespace(default=lambda: context))
+    fake_repository = types.SimpleNamespace(GLib=fake_glib)
+    fake_gi = types.SimpleNamespace(repository=fake_repository)
+    monkeypatch.setitem(sys.modules, "gi", fake_gi)
+    monkeypatch.setitem(sys.modules, "gi.repository", fake_repository)
+
+    app = FakeApp()
+    app.root = FakeRoot(autorun_after=False)
+    icon = FakeIcon()
+
+    start_tray_icon(app, icon)
+
+    assert icon.detached is True
+    assert icon.visible is True
+    assert app.root.calls
+    delay, callback = app.root.calls[0]
+    assert delay == 50
+
+    callback()
+
+    assert events == [("iteration", False), ("iteration", False)]
+    assert app.root.calls[-1][0] == 50

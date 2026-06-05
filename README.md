@@ -252,7 +252,7 @@ Install one of the supported local transcription engines. The fallback transcrip
 User-local installer:
 
 ```bash
-~/.local/opt/meeting-recorder-app-0.5.1/uninstall.sh
+~/.local/opt/meeting-recorder-app-0.5.2/uninstall.sh
 ```
 
 Debian/Ubuntu package:

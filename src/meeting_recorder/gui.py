@@ -22,7 +22,7 @@ from .recorder import RecorderProcess, start_recording, stop_recording
 from .status import CheckItem, build_environment_report
 from .summarizer import summarize_transcript
 from .transcription import transcribe
-from .tray import TrayBackendUnavailable, create_tray_icon
+from .tray import TrayBackendUnavailable, create_tray_icon, start_tray_icon
 
 BG = "#08090a"
 PANEL = "#0f1011"
@@ -793,7 +793,7 @@ class SystemTrayDropdownGUI(CompactDropdownGUI):
         self.root.withdraw()
         self.root.protocol("WM_DELETE_WINDOW", self.shutdown)
         self.tray_icon = create_tray_icon(self)
-        self.tray_icon.run_detached()
+        start_tray_icon(self, self.tray_icon)
 
     def show_tray_dropdown(self) -> None:
         self.render_popover()

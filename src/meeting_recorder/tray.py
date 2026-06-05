@@ -45,6 +45,39 @@ def _schedule(root: Any, callback: Callable[[], None]) -> None:
     root.after(0, callback)
 
 
+def pump_glib_events(root: Any, *, interval_ms: int = 50) -> None:
+    """Let GTK/AppIndicator process pending events while Tk owns mainloop.
+
+    pystray's Linux AppIndicator backend schedules visibility/menu updates on
+    GLib. When Meeting Recorder runs Tk's mainloop, those GLib idle callbacks do
+    not run unless we explicitly drain the default context. Without this, Pop!_OS
+    can have a functioning tray for Discord/Zoom while Meeting Recorder remains
+    invisible.
+    """
+
+    try:
+        from gi.repository import GLib  # type: ignore[import-not-found]
+    except Exception:
+        return
+
+    def _pump() -> None:
+        context = GLib.MainContext.default()
+        while context.pending():
+            context.iteration(False)
+        try:
+            root.after(interval_ms, _pump)
+        except Exception:
+            return
+
+    root.after(interval_ms, _pump)
+
+
+def start_tray_icon(app: Any, icon: Any) -> None:
+    icon.run_detached()
+    icon.visible = True
+    pump_glib_events(app.root)
+
+
 def create_tray_icon(app: Any) -> Any:
     """Create the native system tray icon and menu for the Tk app.
 
