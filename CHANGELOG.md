@@ -2,6 +2,18 @@
 
 All notable changes to Meeting Recorder are documented here.
 
+## 0.7.1 - 2026-06-05
+
+### Fixed
+
+- Made the modern recorder UI interactive by wiring the frontend actions to the local bridge instead of leaving the buttons as static visual evidence.
+- Added regression coverage for record, pause/resume, stop/save, setup, and frontend action dispatch paths.
+
+### Release process
+
+- Rebuilt source installer and Debian release assets as v0.7.1.
+- Verified screenshots from source checkout and installed/downloaded artifacts.
+
 ## 0.7.0 - 2026-06-05
 
 ### Changed
